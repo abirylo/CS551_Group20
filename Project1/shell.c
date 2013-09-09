@@ -384,9 +384,9 @@ int evalWithAliases(char **argv, int argc){
 	        		strcat(expandedline," ");
 
 	        }
-	        char **newargv=expandedLinetoArgv(expandedline);
-	        run_cmd(newargv);
-	        //printf("Expaneded Command not found! : %s \n", expandedline);
+	        //char **newargv=expandedLinetoArgv(expandedline);
+	        //run_cmd(newargv);
+	        printf("Expaneded Command not found! : %s \n", expandedline);
 	    return 0;
 }
 void run_cmd(char **argv)
