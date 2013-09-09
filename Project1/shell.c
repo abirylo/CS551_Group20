@@ -1,4 +1,30 @@
 //shell.c
+//#. Requirement                                                Status
+//1. Invoke from ash.                                              x
+//		./shell
+//2. Execute PROFILE file										   x
+//		./shell -p .
+//3. Define "prompt sign" in PROFILE                               x
+//4. Define home directory in PROFILE							   x
+//5. Access executables in /bin and /usr/bin
+//6. Execute executable without argument.
+//7. Execute with output redirection to file.
+//8. Execute with output redirection to program.
+//9. Alarm after 5 seconds of execution.
+//10. Alarm prompts for termination. 
+//11. Alarm can be "OFF" in PROFILE(Time=-1)              			x
+//12. Alarm can be turned off via alarm off 							x
+// 		alarm off
+//13. Alias expansion. 												/
+// 		Alias listcontent="ls -l | grep "^d""
+//14. Alias namespace duplication verification. 						x
+// 		Alias listcontent="ls -l | grep "^d""
+// 		Alias listcontent="ls -l | grep "^d""
+//15. Global namespace duplication verification for aliases.
+//16. if/then/else/fi
+//17. Terminate only with exit										x
+//18. Handle signals where possible (CTRL+C, CTRL+Z)					x
+//19. Handle CTRL+D better
 
 #include <unistd.h>
 #include <stdio.h>
@@ -13,13 +39,23 @@
 #include <errno.h>
 
 #define MAX_ALIAS_COMMANDS 256
+//Number of aliases allowed to be defined at once.
 #define MAX_PROFILE_SIZE 127
+//Number of profile variables?
 #define MAX_COMMAND_LINE_SIZE 1024
-
+//Unknown.
+#define MAX_COMMAND_LINE_CHARACTERS 4096
+//Unknown.
+#define MAX_ALIAS_ASSIGNMENT_STRING_LENGTH 1024
+//The limiting number of characters in an alias assignment string
+#define MAX_ALIAS_COMMAND_LENGTH 50
+//The maximum number of characters an alias command can have
+#define ALARM_DEFAULT_TIME 5
+//The default time for the alarm
 //Golbal Varibles set to Defualts
 char PROMPT[MAX_PROFILE_SIZE] = "$ ";
 char HOME_DIRECTORY[MAX_PROFILE_SIZE] = "/";
-int ALARM_TIME = 5; //seconds
+int ALARM_TIME = ALARM_DEFAULT_TIME; //seconds
 
 int MAX_ARGUMENTS = 128;
 
@@ -56,6 +92,7 @@ int main(int argc, char **argv)
             break;
         default:
             usage();
+            break;
         }
     }
     
@@ -150,6 +187,14 @@ int parseProfile(char *path)
         {
             ALARM_TIME = atoi(token);
         }
+        else if(strcmp("ALARM", variable) == 0 && strcmp("OFF",token) == 0)
+        {
+            ALARM_TIME = -1;
+        }
+        else if(strcmp("ALARM", variable) == 0 && strcmp("ON",token) == 0)
+        {
+            continue;
+        }
         else if(strcmp("MAX_ARGUMENTS", variable) == 0)
         {
             MAX_ARGUMENTS = atoi(token);
@@ -193,29 +238,121 @@ int parseLine(const char *commandLine, char **argv)
     
     return argc;
 }
+int addAlias(char **argv, int argc){
+	//Parse line with example:
+	//Alias listcontent=“ls”
+	//Alias listcontent="ls -l | grep "
+    //pointer to the alias itself (key)
+    char *alias;
+    //pointer to the command (value)
+    char *command;
+
+    char line[MAX_ALIAS_ASSIGNMENT_STRING_LENGTH];
+    //lhs is everything after the Alias argument, but before first equal sign
+    char lhs[MAX_ALIAS_COMMAND_LENGTH];
+    //rhs is everything after first equal sign, including both starting and ending quotes
+    char rhs[MAX_ALIAS_ASSIGNMENT_STRING_LENGTH-MAX_ALIAS_COMMAND_LENGTH];
+
+
+    int i;
+    strcpy(line,"");
+    for(i=1;i<argc;i++){
+    	strcat(line,argv[i]);
+    	strcat(line," ");
+    }
+    char *search="=";
+    alias=strtok(line,search);
+    strcpy(lhs,alias);
+    strcpy(rhs,"");
+    int n=0;
+    while(1){
+    		command=strtok(NULL,search);
+    		if(command != NULL){
+    			if (n > 0){
+    				strcat(rhs,search);
+    			}
+    			strcat(rhs,command);
+    			n++;
+    		}
+    		else{
+    			break;
+    		}
+    }
+    //do alias checking
+    if( aliasSize > 0)
+    {
+        int i;
+        for(i=0; i<aliasSize; i++)
+        {
+           if(strcmp(aliasList[i][0], lhs) == 0){
+        	   printf("You already defined %s as an alias with value %s \n",aliasList[i][0],aliasList[i][1]);
+        	   return 1;
+           }
+        }
+
+    }
+    //prepare to truncate the  quotes from the rhs
+    char cmdbuf[MAX_ALIAS_ASSIGNMENT_STRING_LENGTH-MAX_ALIAS_COMMAND_LENGTH];
+    memmove( &cmdbuf , &rhs[1], (strlen(rhs) - 3)) ;
+    aliasList[aliasSize][0]=lhs;
+    aliasList[aliasSize][1]=cmdbuf;
+    aliasSize++;
+
+    return 0;
+}
 
 int evaluate(char **argv, int argc)
 {
     if(argc <= 0)
         return -1;
     
-    //do alias checking 
-    //if( aliasSize > 0)
-    //{
-    //    for(int i=0; i<aliasSize; i++)
-    //    {
-    //        strcmp(aliasList[0,i], arg)
-    //    }
-    //}
-    
+//Certain specific builtins, exit, alarm settings, and Aliases
     if(strcmp("exit", argv[0]) == 0){
         exit(0);
     }
-    else
-    {
-        printf("Not Valid Command\n");
+    else if(strcmp("alarm", argv[0]) == 0 && strcmp("off", argv[1]) == 0){
+        ALARM_TIME = -1;
+        return 0;
     }
-    
+    else if(strcmp("alarm", argv[0]) == 0 && strcmp("on", argv[1]) == 0){
+        if (argc==3){
+        	ALARM_TIME = atoi(argv[2]);
+        }
+        else{
+    		ALARM_TIME = ALARM_DEFAULT_TIME;
+        }
+    		return 0;
+    }
+    else if((strcmp("Alias", argv[0]) == 0 || strcmp("alias", argv[0]) == 0 ) && argc >= 1){
+        return addAlias(argv,argc);
+    }
+
+    if( aliasSize > 0)
+    {
+    char	 expandedline[MAX_COMMAND_LINE_CHARACTERS];
+    strcpy(expandedline,"");
+        int i,k,found;
+        for (k=0;k<argc;k++){
+        		found=0;
+        		for(i=0; i<aliasSize; i++)
+        		{
+        			printf("looking up if %s = %s, return %d \n",aliasList[i][0],argv[k],strcmp(aliasList[i][0], argv[k]));
+        			if (strcmp(aliasList[i][0], argv[k]) == 0){
+        				strcat(expandedline,aliasList[i][1]);
+        				found=1;
+        				break;
+        			}
+
+        		}
+        		if (found == 0){
+        			strcat(expandedline,argv[k]);
+        		}
+        		strcat(expandedline," ");
+
+        }
+    printf("Command not found! : %s \n", expandedline);
+
+    }
     //find if command is in /bin or /usr/bin
     return 0;
 }
