@@ -6,8 +6,8 @@
 //		./shell -p .
 //3. Define "prompt sign" in PROFILE                               x
 //4. Define home directory in PROFILE							   x
-//5. Access executables in /bin and /usr/bin
-//6. Execute executable without argument.
+//5. Access executables in /bin and /usr/bin							x
+//6. Execute executable without argument.							x
 //7. Execute with output redirection to file.
 //8. Execute with output redirection to program.
 //9. Alarm after 5 seconds of execution.
@@ -20,7 +20,7 @@
 //14. Alias namespace duplication verification. 						x
 // 		Alias listcontent="ls -l | grep "^d""
 // 		Alias listcontent="ls -l | grep "^d""
-//15. Global namespace duplication verification for aliases.
+//15. Global namespace duplication verification for aliases.			?
 //16. if/then/else/fi
 //17. Terminate only with exit										x
 //18. Handle signals where possible (CTRL+C, CTRL+Z)					x
