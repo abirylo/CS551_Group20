@@ -318,18 +318,7 @@ int addAlias(char **argv, int argc){
 
     }
     //prepare to truncate the  quotes from the rhs
-    char cmdbuf[MAX_ALIAS_ASSIGNMENT_STRING_LENGTH-MAX_ALIAS_COMMAND_LENGTH];
-
-    //printf("%c",(char)rhs[strlen(rhs)-2]);
-     printf("%s",rhs);
-
-    //strcpy("\0",&rhs[strlen(rhs)-2]);//remove the  &
-    //printf("%s",rhs);
     memmove( &rhs[(strlen(rhs) - 2)], &"\0" , 1);
-    memmove( &rhs[0], &"\0" , 1);
-    printf("%s",rhs);
-
-    //memmove( &cmdbuf , &rhs[0], (strlen(rhs) - 2)) ;
     aliasList[aliasSize][0]=lhs;
     aliasList[aliasSize][1]=rhs+1;
     aliasSize++;
@@ -372,15 +361,38 @@ int evaluate(char **argv, int argc)
     //find if command is in /bin or /usr/bin
     return 0;
 }
+char** expandedLinetoArgv(char *expandedLine, char **argv){
+
+    char *search=" ";
+    char *arg;
+    //String tokenizing is a destructive process
+    char parsableLine[MAX_COMMAND_LINE_CHARACTERS];
+    strcpy(parsableLine,expandedLine);
+    arg=strtok(parsableLine,search);
+    int i=0;
+    argv[i]=arg;
+    i++;
+    while(1){
+    	arg=strtok(NULL,search);
+    	if(arg != NULL){
+    		argv[i]=arg;
+    		i++;
+    	}
+    	else{
+    		break;
+    	}
+    }
+	return argv;
+}
 int evalWithAliases(char **argv, int argc){
-	char	 expandedline[MAX_COMMAND_LINE_CHARACTERS];
+		char expandedline[MAX_COMMAND_LINE_CHARACTERS];
 	    strcpy(expandedline,"");
 	        int i,k,found;
 	        for (k=0;k<argc;k++){
 	        		found=0;
 	        		for(i=0; i<aliasSize; i++)
 	        		{
-	        			printf("looking up if %s = %s, return %d \n",aliasList[i][0],argv[k],strcmp(aliasList[i][0], argv[k]));
+	        			//printf("looking up if %s = %s, return %d \n",aliasList[i][0],argv[k],strcmp(aliasList[i][0], argv[k]));
 	        			if (strcmp(aliasList[i][0], argv[k]) == 0){
 	        				strcat(expandedline,aliasList[i][1]);
 	        				found=1;
@@ -394,9 +406,9 @@ int evalWithAliases(char **argv, int argc){
 	        		strcat(expandedline," ");
 
 	        }
-	        //char **newargv=expandedLinetoArgv(expandedline);
-	        //run_cmd(newargv);
-	        printf("Expaneded Command not found! : %s \n", expandedline);
+	    	char* newargv[MAX_ARGUMENTS];
+	        expandedLinetoArgv(expandedline,newargv);
+	        run_cmd(newargv);
 	    return 0;
 }
 void run_cmd(char **argv)
