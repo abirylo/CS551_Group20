@@ -427,27 +427,27 @@ void run_cmd(char **argv)
 				}
 			}
 			else if(strcmp("|",argv[i]) == 0){
-							//printf("Redirect stdout to stdin of command: %s \n pipe number %d\n",argv[i+1],pipecursor+1);
-							//Mark in the array where the pipe occurs so you can split the argv into multiple argvs later
-							pipechars[pipecursor]=i;
-							pipecursor++;
-							int k;
-							//Copy the old argv into a new smaller argv
-							int base;
-							if(pipecursor>=2){
-								base=pipechars[pipecursor-2]+1;
-							}
-							else{
-								base=0;
-							}
-							printf("current position proc=%d\n",pipecursor-1);
-							for(k=0;k<pipechars[pipecursor-1]-base;k++){
-								printf("Writing %s to argvectors[%d][%d]\n",argv[k+base],pipecursor-1,k);
-								argVectors[pipecursor-1][k]=argv[k+base];
+					//printf("Redirect stdout to stdin of command: %s \n pipe number %d\n",argv[i+1],pipecursor+1);
+					//Mark in the array where the pipe occurs so you can split the argv into multiple argvs later
+					pipechars[pipecursor]=i;
+					pipecursor++;
+					int k;
+					//Copy the old argv into a new smaller argv
+					int base;
+					if(pipecursor>=2){
+						base=pipechars[pipecursor-2]+1;
+					}
+					else{
+						base=0;
+					}
+					printf("current position proc=%d\n",pipecursor-1);
+					for(k=0;k<pipechars[pipecursor-1]-base;k++){
+						printf("Writing %s to argvectors[%d][%d]\n",argv[k+base],pipecursor-1,k);
+						argVectors[pipecursor-1][k]=argv[k+base];
 
-							}
-							//strcpy(argv[i],"\0");
-							}
+					}
+					//strcpy(argv[i],"\0");
+					}
 
 
 		}
