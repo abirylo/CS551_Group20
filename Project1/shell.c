@@ -413,18 +413,88 @@ int evalWithAliases(char **argv, int argc){
 }
 void run_cmd(char **argv)
 {
+	int i=0;
+	int pipechars[MAX_COMMAND_LINE_SIZE];
+	int pipecursor=0;
+	char *fileoutput=NULL;
+	char argVectors[MAX_COMMAND_LINE_SIZE][MAX_COMMAND_LINE_SIZE];
+	while(1){
+		if (argv[i] != NULL){
+			if(strcmp(">",argv[i]) == 0){
+				if(argv[i+1] !=NULL){
+				printf("Redirect to file: %s \n",argv[i+1]);
+				fileoutput=argv[i+1];
+				}
+			}
+			else if(strcmp("|",argv[i]) == 0){
+							//printf("Redirect stdout to stdin of command: %s \n pipe number %d\n",argv[i+1],pipecursor+1);
+							//Mark in the array where the pipe occurs so you can split the argv into multiple argvs later
+							pipechars[pipecursor]=i;
+							pipecursor++;
+							int k;
+							//Copy the old argv into a new smaller argv
+							int base;
+							if(pipecursor>=2){
+								base=pipechars[pipecursor-2]+1;
+							}
+							else{
+								base=0;
+							}
+							printf("current position proc=%d\n",pipecursor-1);
+							for(k=0;k<pipechars[pipecursor-1]-base;k++){
+								printf("Writing %s to argvectors[%d][%d]\n",argv[k+base],pipecursor-1,k);
+								argVectors[pipecursor-1][k]=argv[k+base];
+
+							}
+							//strcpy(argv[i],"\0");
+							}
+
+
+		}
+		else{
+			break;
+		}
+		i++;
+	}
+	if(pipecursor>=1){
+		int k;
+		//Copy the old argv into a new smaller argv
+		int base;
+			base=pipechars[pipecursor-1]+1;
+		printf("current position proc=%d\n",pipecursor-1);
+		for(k=0;k<i-base;k++){
+			printf("Writing %s to argvectors[%d][%d]\n",argv[k+base],pipecursor,k);
+			argVectors[pipecursor][k]=argv[k+base];
+
+		}
+	}
+	fflush(stdout);
      pid_t  pid;
      int    status;
+     int pipefds[2][pipecursor];
+     for(i=0;i<pipecursor;i++){
+    	 //Generate pipes to connect them all
+    	 pipe(pipefds[i]);
+     }
 
      if ((pid = fork()) < 0) {     /* fork a child process           */
-          printf("*** ERROR: forking child process failed\n");
+          printf("ERROR: fork FAILED; is your process table full?\n");
           exit(1);
      }
      else if (pid == 0) {          /* for the child process:         */
-          if (execvp(*argv, argv) < 0) {     /* execute the command  */
-               printf("ERROR: exec failed with command: %s\n", argv[0]);
-               exit(1);
+    	 if (pipecursor>0){
+    		 	printf("%s\n",argVectors[0][0]);
+    		 if (execvp(*argv, argv) < 0) {     /* execute the command  */
+    			 printf("ERROR: command: %s FAILED\n", argv[0]);
+    			 exit(1);
           }
+    	 }
+    	 else {
+    		 if (execvp(*argv, argv) < 0) {     /* execute the command  */
+    			 printf("ERROR: command: %s FAILED\n", argv[0]);
+    			 exit(1);
+    	 }
+     }
      }
      else {                                  /* for the parent:      */
           while (wait(&status) != pid)       /* wait for completion  */
