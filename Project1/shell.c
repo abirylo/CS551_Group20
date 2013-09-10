@@ -1,29 +1,29 @@
 //shell.c
 //#. Requirement                                                Status
 //1. Invoke from ash.                                              x
-//		./shell
-//2. Execute PROFILE file										   x
-//		./shell -p .
+//        ./shell
+//2. Execute PROFILE file                                          x
+//        ./shell -p .
 //3. Define "prompt sign" in PROFILE                               x
-//4. Define home directory in PROFILE							   x
-//5. Access executables in /bin and /usr/bin							x
-//6. Execute executable without argument.							x
+//4. Define home directory in PROFILE                              x
+//5. Access executables in /bin and /usr/bin                       x
+//6. Execute executable without argument.                          x
 //7. Execute with output redirection to file.
 //8. Execute with output redirection to program.
 //9. Alarm after 5 seconds of execution.
 //10. Alarm prompts for termination. 
-//11. Alarm can be "OFF" in PROFILE(Time=-1)              			x
-//12. Alarm can be turned off via alarm off 							x
-// 		alarm off
-//13. Alias expansion. 												/
-// 		Alias listcontent="ls -l | grep "^d""
-//14. Alias namespace duplication verification. 						x
-// 		Alias listcontent="ls -l | grep "^d""
-// 		Alias listcontent="ls -l | grep "^d""
-//15. Global namespace duplication verification for aliases.			?
+//11. Alarm can be "OFF" in PROFILE(Time=-1)                       x
+//12. Alarm can be turned off via alarm off                        x
+//         alarm off
+//13. Alias expansion.                                             /
+//         Alias listcontent="ls -l | grep "^d""
+//14. Alias namespace duplication verification.                    x
+//         Alias listcontent="ls -l | grep "^d""
+//         Alias listcontent="ls -l | grep "^d""
+//15. Global namespace duplication verification for aliases.       ?
 //16. if/then/else/fi
-//17. Terminate only with exit										x
-//18. Handle signals where possible (CTRL+C, CTRL+Z)					x
+//17. Terminate only with exit                                     x
+//18. Handle signals where possible (CTRL+C, CTRL+Z)               x
 //19. Handle CTRL+D better
 
 #include <unistd.h>
