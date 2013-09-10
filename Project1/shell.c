@@ -266,7 +266,7 @@ int parseLine(const char *commandLine, char **argv)
 }
 int addAlias(char **argv, int argc){
 	//Parse line with example:
-	//Alias listcontent=ÒlsÓ
+	//Alias listcontent=ï¿½lsï¿½
 	//Alias listcontent="ls -l | grep "
     //pointer to the alias itself (key)
     char *alias;
@@ -319,9 +319,19 @@ int addAlias(char **argv, int argc){
     }
     //prepare to truncate the  quotes from the rhs
     char cmdbuf[MAX_ALIAS_ASSIGNMENT_STRING_LENGTH-MAX_ALIAS_COMMAND_LENGTH];
-    memmove( &cmdbuf , &rhs[0], (strlen(rhs) - 2)) ;
+
+    //printf("%c",(char)rhs[strlen(rhs)-2]);
+     printf("%s",rhs);
+
+    //strcpy("\0",&rhs[strlen(rhs)-2]);//remove the  &
+    //printf("%s",rhs);
+    memmove( &rhs[(strlen(rhs) - 2)], &"\0" , 1);
+    memmove( &rhs[0], &"\0" , 1);
+    printf("%s",rhs);
+
+    //memmove( &cmdbuf , &rhs[0], (strlen(rhs) - 2)) ;
     aliasList[aliasSize][0]=lhs;
-    aliasList[aliasSize][1]=cmdbuf+1;
+    aliasList[aliasSize][1]=rhs+1;
     aliasSize++;
 
     return 0;
