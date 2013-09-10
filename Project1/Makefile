@@ -1,7 +1,7 @@
 #MakeFile
 
 CC=gcc
-CFLAGS=-c -Wall
+CFLAGS=-c -Wall -g3
 LIBS=
 LDFLAGS=
 SOURCES=shell.c
