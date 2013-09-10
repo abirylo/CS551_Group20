@@ -117,8 +117,8 @@ int main(int argc, char **argv)
     char env[MAX_COMMAND_LINE_SIZE];
     strcpy(env,"PATH= ");
     for(i=0;i<NUM_WORKING_DIRS;i++){
-    	strcat(env,workingdirs[i]);
-    	strcat(env,":");
+        strcat(env,workingdirs[i]);
+        strcat(env,":");
 
     }
     printf("Oldenv:%s \n",getenv("PATH"));
@@ -265,9 +265,9 @@ int parseLine(const char *commandLine, char **argv)
     return argc;
 }
 int addAlias(char **argv, int argc){
-	//Parse line with example:
-	//Alias listcontent=�ls�
-	//Alias listcontent="ls -l | grep "
+    //Parse line with example:
+    //Alias listcontent=�ls�
+    //Alias listcontent="ls -l | grep "
     //pointer to the alias itself (key)
     char *alias;
     //pointer to the command (value)
@@ -283,8 +283,8 @@ int addAlias(char **argv, int argc){
     int i;
     strcpy(line,"");
     for(i=1;i<argc;i++){
-    	strcat(line,argv[i]);
-    	strcat(line," ");
+        strcat(line,argv[i]);
+        strcat(line," ");
     }
     char *search="=";
     alias=strtok(line,search);
@@ -292,17 +292,17 @@ int addAlias(char **argv, int argc){
     strcpy(rhs,"");
     int n=0;
     while(1){
-    		command=strtok(NULL,search);
-    		if(command != NULL){
-    			if (n > 0){
-    				strcat(rhs,search);
-    			}
-    			strcat(rhs,command);
-    			n++;
-    		}
-    		else{
-    			break;
-    		}
+            command=strtok(NULL,search);
+            if(command != NULL){
+                if (n > 0){
+                    strcat(rhs,search);
+                }
+                strcat(rhs,command);
+                n++;
+            }
+            else{
+                break;
+            }
     }
     //do alias checking
     if( aliasSize > 0)
@@ -311,8 +311,8 @@ int addAlias(char **argv, int argc){
         for(i=0; i<aliasSize; i++)
         {
            if(strcmp(aliasList[i][0], lhs) == 0){
-        	   printf("You already defined %s as an alias with value %s \n",aliasList[i][0],aliasList[i][1]);
-        	   return 1;
+               printf("You already defined %s as an alias with value %s \n",aliasList[i][0],aliasList[i][1]);
+               return 1;
            }
         }
 
@@ -341,12 +341,12 @@ int evaluate(char **argv, int argc)
     }
     else if(strcmp("alarm", argv[0]) == 0 && strcmp("on", argv[1]) == 0){
         if (argc==3){
-        	ALARM_TIME = atoi(argv[2]);
+            ALARM_TIME = atoi(argv[2]);
         }
         else{
-    		ALARM_TIME = ALARM_DEFAULT_TIME;
+            ALARM_TIME = ALARM_DEFAULT_TIME;
         }
-    		return 0;
+            return 0;
     }
     else if((strcmp("Alias", argv[0]) == 0 || strcmp("alias", argv[0]) == 0 ) && argc >= 1){
         return addAlias(argv,argc);
@@ -354,7 +354,7 @@ int evaluate(char **argv, int argc)
 
     if( aliasSize > 0)
     {
-    	return evalWithAliases(argv,argc);
+        return evalWithAliases(argv,argc);
     }
     run_cmd(argv);
     //printf("Basic command not found! : %s \n",argv[0]);
@@ -373,108 +373,109 @@ char** expandedLinetoArgv(char *expandedLine, char **argv){
     argv[i]=arg;
     i++;
     while(1){
-    	arg=strtok(NULL,search);
-    	if(arg != NULL){
-    		argv[i]=arg;
-    		i++;
-    	}
-    	else{
-    		break;
-    	}
+        arg=strtok(NULL,search);
+        if(arg != NULL){
+            argv[i]=arg;
+            i++;
+        }
+        else{
+            break;
+        }
     }
-	return argv;
+    return argv;
 }
 int evalWithAliases(char **argv, int argc){
-		char expandedline[MAX_COMMAND_LINE_CHARACTERS];
-	    strcpy(expandedline,"");
-	        int i,k,found;
-	        for (k=0;k<argc;k++){
-	        		found=0;
-	        		for(i=0; i<aliasSize; i++)
-	        		{
-	        			//printf("looking up if %s = %s, return %d \n",aliasList[i][0],argv[k],strcmp(aliasList[i][0], argv[k]));
-	        			if (strcmp(aliasList[i][0], argv[k]) == 0){
-	        				strcat(expandedline,aliasList[i][1]);
-	        				found=1;
-	        				break;
-	        			}
+        char expandedline[MAX_COMMAND_LINE_CHARACTERS];
+        strcpy(expandedline,"");
+            int i,k,found;
+            for (k=0;k<argc;k++){
+                    found=0;
+                    for(i=0; i<aliasSize; i++)
+                    {
+                        //printf("looking up if %s = %s, return %d \n",aliasList[i][0],argv[k],strcmp(aliasList[i][0], argv[k]));
+                        if (strcmp(aliasList[i][0], argv[k]) == 0){
+                            strcat(expandedline,aliasList[i][1]);
+                            found=1;
+                            break;
+                        }
 
-	        		}
-	        		if (found == 0){
-	        			strcat(expandedline,argv[k]);
-	        		}
-	        		strcat(expandedline," ");
+                    }
+                    if (found == 0){
+                        strcat(expandedline,argv[k]);
+                    }
+                    strcat(expandedline," ");
 
-	        }
-	    	char* newargv[MAX_ARGUMENTS];
-	        expandedLinetoArgv(expandedline,newargv);
-	        run_cmd(newargv);
-	    return 0;
+            }
+            char* newargv[MAX_ARGUMENTS];
+            expandedLinetoArgv(expandedline,newargv);
+            run_cmd(newargv);
+        return 0;
 }
 void run_cmd(char **argv)
 {
-	int i=0;
-	int pipechars[MAX_COMMAND_LINE_SIZE];
-	int pipecursor=0;
-	char *fileoutput=NULL;
-	char argVectors[MAX_COMMAND_LINE_SIZE][MAX_COMMAND_LINE_SIZE];
-	while(1){
-		if (argv[i] != NULL){
-			if(strcmp(">",argv[i]) == 0){
-				if(argv[i+1] !=NULL){
-				printf("Redirect to file: %s \n",argv[i+1]);
-				fileoutput=argv[i+1];
-				}
-			}
-			else if(strcmp("|",argv[i]) == 0){
-					//printf("Redirect stdout to stdin of command: %s \n pipe number %d\n",argv[i+1],pipecursor+1);
-					//Mark in the array where the pipe occurs so you can split the argv into multiple argvs later
-					pipechars[pipecursor]=i;
-					pipecursor++;
-					int k;
-					//Copy the old argv into a new smaller argv
-					int base;
-					if(pipecursor>=2){
-						base=pipechars[pipecursor-2]+1;
-					}
-					else{
-						base=0;
-					}
-					printf("current position proc=%d\n",pipecursor-1);
-					for(k=0;k<pipechars[pipecursor-1]-base;k++){
-						printf("Writing %s to argvectors[%d][%d]\n",argv[k+base],pipecursor-1,k);
-						argVectors[pipecursor-1][k]=argv[k+base];
+    int i=0;
+    int pipechars[MAX_COMMAND_LINE_SIZE];
+    int pipecursor=0;
+    char *fileoutput=NULL;
+    char argVectors[MAX_COMMAND_LINE_SIZE][MAX_COMMAND_LINE_SIZE];
+    while(1){
+        if (argv[i] != NULL){
+            if(strcmp(">",argv[i]) == 0){
+                if(argv[i+1] !=NULL){
+                printf("Redirect to file: %s \n",argv[i+1]);
+                fileoutput=argv[i+1];
+                }
+            }
+            else if(strcmp("|",argv[i]) == 0){
+                    //printf("Redirect stdout to stdin of command: %s \n pipe number %d\n",argv[i+1],pipecursor+1);
+                    //Mark in the array where the pipe occurs so you can split the argv into multiple argvs later
+                    pipechars[pipecursor]=i;
+                    pipecursor++;
+                    int k;
+                    //Copy the old argv into a new smaller argv
+                    int base;
+                    if(pipecursor>=2){
+                        base=pipechars[pipecursor-2]+1;
+                    }
+                    else{
+                        base=0;
+                    }
+                    printf("current position proc=%d\n",pipecursor-1);
+                    for(k=0;k<pipechars[pipecursor-1]-base;k++){
+                        printf("Writing %s to argvectors[%d][%d]\n",argv[k+base],pipecursor-1,k);
+                        argVectors[pipecursor-1][k]=argv[k+base];
 
-					}
-					//strcpy(argv[i],"\0");
-					}
+                    }
+                    //strcpy(argv[i],"\0");
+                    }
 
 
-		}
-		else{
-			break;
-		}
-		i++;
-	}
-	if(pipecursor>=1){
-		int k;
-		//Copy the old argv into a new smaller argv
-		int base;
-			base=pipechars[pipecursor-1]+1;
-		printf("current position proc=%d\n",pipecursor-1);
-		for(k=0;k<i-base;k++){
-			printf("Writing %s to argvectors[%d][%d]\n",argv[k+base],pipecursor,k);
-			argVectors[pipecursor][k]=argv[k+base];
+        }
+        else{
+            break;
+        }
+        i++;
+    }
+    //Copy the last argument list (the one at the end with no terminating pipe char)
+    if(pipecursor>=1){
+        int k;
+        //Copy the old argv into a new smaller argv
+        int base;
+            base=pipechars[pipecursor-1]+1;
+        printf("current position proc=%d\n",pipecursor);
+        for(k=0;k<i-base;k++){
+            printf("Writing %s to argvectors[%d][%d]\n",argv[k+base],pipecursor,k);
+            argVectors[pipecursor][k]=argv[k+base];
 
-		}
-	}
-	fflush(stdout);
+        }
+    }
+    fflush(stdout);
      pid_t  pid;
      int    status;
      int pipefds[2][pipecursor];
      for(i=0;i<pipecursor;i++){
-    	 //Generate pipes to connect them all
-    	 pipe(pipefds[i]);
+         //Generate pipes to connect them all
+         pipe(pipefds[i]);
      }
 
      if ((pid = fork()) < 0) {     /* fork a child process           */
@@ -482,18 +483,18 @@ void run_cmd(char **argv)
           exit(1);
      }
      else if (pid == 0) {          /* for the child process:         */
-    	 if (pipecursor>0){
-    		 	printf("%s\n",argVectors[0][0]);
-    		 if (execvp(*argv, argv) < 0) {     /* execute the command  */
-    			 printf("ERROR: command: %s FAILED\n", argv[0]);
-    			 exit(1);
+         if (pipecursor>0){
+                 printf("%s\n",argVectors[0][0]);
+             if (execvp(*argv, argv) < 0) {     /* execute the command  */
+                 printf("ERROR: command: %s FAILED\n", argv[0]);
+                 exit(1);
           }
-    	 }
-    	 else {
-    		 if (execvp(*argv, argv) < 0) {     /* execute the command  */
-    			 printf("ERROR: command: %s FAILED\n", argv[0]);
-    			 exit(1);
-    	 }
+         }
+         else {
+             if (execvp(*argv, argv) < 0) {     /* execute the command  */
+                 printf("ERROR: command: %s FAILED\n", argv[0]);
+                 exit(1);
+         }
      }
      }
      else {                                  /* for the parent:      */
