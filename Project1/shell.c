@@ -49,6 +49,8 @@
 #define MAX_ALIAS_ASSIGNMENT_STRING_LENGTH 1024
 //The limiting number of characters in an alias assignment string
 #define MAX_ALIAS_COMMAND_LENGTH 50
+#define MAX_PIPES 32
+#define MAX_INDIVIDUAL_EXECV_ARGUMENTS 64
 //The maximum number of characters an alias command can have
 #define ALARM_DEFAULT_TIME 5
 //The default time for the alarm
@@ -73,7 +75,9 @@ int parseProfile(char *path);
 int parseLine(const char *commandLine, char **argv);
 
 int addAlias(char **argv, int argc);
-void run_cmd(char **argv);
+int run_cmd(char **argv);
+int runCommandWithPipes(char **argv);
+int runCommandNoPipes(char **argv);
 
 int evaluate(char **argv, int argc);
 int evalWithAliases(char **argv, int argc);
@@ -411,14 +415,85 @@ int evalWithAliases(char **argv, int argc){
             run_cmd(newargv);
         return 0;
 }
-void run_cmd(char **argv)
-{
+int has_pipe(char **argv){
     int i=0;
-    int pipechars[MAX_COMMAND_LINE_SIZE];
-    int pipecursor=0;
-    char *fileoutput=NULL;
-    char argVectors[MAX_COMMAND_LINE_SIZE][MAX_COMMAND_LINE_SIZE];
     while(1){
+            if (argv[i] != NULL){
+                if(strcmp("|",argv[i]) == 0){
+                        return 1;
+                    }
+                i++;
+                }
+                else{
+                        break;
+                }
+    }
+    return 0;
+}
+int run_cmd(char **argv){
+    if (has_pipe(argv)){
+        runCommandWithPipes(argv);
+    }
+    else{
+        runCommandNoPipes(argv);
+    }
+    return 1;
+
+    }
+int runCommandNoPipes(char **argv){
+    int i=0;
+    char *fileoutput=NULL;
+    while(1){
+
+        if (argv[i] != NULL){
+            if(strcmp(">",argv[i]) == 0){
+                if(argv[i+1] !=NULL){
+                printf("Redirect to file: %s \n",argv[i+1]);
+                fileoutput=argv[i+1];
+                }
+            }
+            i++;
+        }
+        else{
+                break;
+            }
+    }
+             pid_t  pid;
+         int status;
+         if ((pid = fork()) < 0) {     /* fork a child process           */
+              printf("ERROR: fork FAILED; is your process table full?\n");
+              exit(1);
+         }
+         else if (pid == 0) {          /* for the child process:         */
+                  if (execvp(*argv, argv) < 0) {     /* execute the command  */
+                      printf("ERROR: command: %s FAILED\n", argv[0]);
+                      exit(1);
+                  }
+         }
+              else {                                  /* for the parent:      */
+                   while (wait(&status) != pid)       /* wait for completion  */
+                        ;
+              }
+              return 0;
+}
+int runCommandWithPipes(char **argv)
+{
+    char* argVectors[64][64];
+    int i,j;
+    /*for(i=0;i<64;i++){
+        for(j=0;j<128;j++){
+        argVectors[i][j]=(char*)malloc(1024);
+        }
+    }
+    printf("\nsize: %d\n",sizeof(argVectors));
+    */
+    i=0;
+    j=0;
+    int pipechars[MAX_COMMAND_LINE_SIZE];
+    int pipecount=0;
+    char *fileoutput=NULL;
+    while(1){
+
         if (argv[i] != NULL){
             if(strcmp(">",argv[i]) == 0){
                 if(argv[i+1] !=NULL){
@@ -429,24 +504,24 @@ void run_cmd(char **argv)
             else if(strcmp("|",argv[i]) == 0){
                     //printf("Redirect stdout to stdin of command: %s \n pipe number %d\n",argv[i+1],pipecursor+1);
                     //Mark in the array where the pipe occurs so you can split the argv into multiple argvs later
-                    pipechars[pipecursor]=i;
-                    pipecursor++;
+                    pipechars[pipecount]=i;
+                    pipecount++;
                     int k;
                     //Copy the old argv into a new smaller argv
                     int base;
-                    if(pipecursor>=2){
-                        base=pipechars[pipecursor-2]+1;
+                    if(pipecount>=2){
+                        base=pipechars[pipecount-2]+1;
                     }
                     else{
                         base=0;
                     }
-                    printf("current position proc=%d\n",pipecursor-1);
-                    for(k=0;k<pipechars[pipecursor-1]-base;k++){
-                        printf("Writing %s to argvectors[%d][%d]\n",argv[k+base],pipecursor-1,k);
-                        argVectors[pipecursor-1][k]=argv[k+base];
+                    //printf("current position proc=%d\n",pipecount-1);
+                    for(k=0;k<pipechars[pipecount-1]-base;k++){
+                        //printf("Writing %s to argvectors[%d][%d]\n",argv[k+base],pipecount-1,k);
+                            argVectors[pipecount-1][k]=argv[k+base];
 
                     }
-                    //strcpy(argv[i],"\0");
+                        argVectors[pipecount-1][k+1]=NULL;
                     }
 
 
@@ -457,50 +532,52 @@ void run_cmd(char **argv)
         i++;
     }
     //Copy the last argument list (the one at the end with no terminating pipe char)
-    if(pipecursor>=1){
+    if(pipecount>=1){
         int k;
         //Copy the old argv into a new smaller argv
-        int base;
-            base=pipechars[pipecursor-1]+1;
-        printf("current position proc=%d\n",pipecursor);
+        int base=pipechars[pipecount-1]+1;
+        //printf("current position proc=%d\n",pipecount);
         for(k=0;k<i-base;k++){
-            printf("Writing %s to argvectors[%d][%d]\n",argv[k+base],pipecursor,k);
-            argVectors[pipecursor][k]=argv[k+base];
+            //printf("Writing %s to argvectors[%d][%d]\n",argv[k+base],pipecount,k);
+                argVectors[pipecount][k]=argv[k+base];
 
         }
+        argVectors[pipecount][k+1]=NULL;
+        argVectors[pipecount+1][k+1]=NULL;
+
+
+
     }
+    int pipefds[2][pipecount];
     fflush(stdout);
-     pid_t  pid;
-     int    status;
-     int pipefds[2][pipecursor];
-     for(i=0;i<pipecursor;i++){
+
+     for(i=0;i<pipecount;i++){
          //Generate pipes to connect them all
          pipe(pipefds[i]);
      }
+     pid_t  pid;
+     int    status;
 
      if ((pid = fork()) < 0) {     /* fork a child process           */
           printf("ERROR: fork FAILED; is your process table full?\n");
           exit(1);
      }
      else if (pid == 0) {          /* for the child process:         */
-         if (pipecursor>0){
-                 printf("%s\n",argVectors[0][0]);
-             if (execvp(*argv, argv) < 0) {     /* execute the command  */
-                 printf("ERROR: command: %s FAILED\n", argv[0]);
+         //printf("%s,%p",(char*)argVectors[0][0],&argVectors[0][0]);
+            fflush(stdout);
+
+
+             if (execvp((char*)argVectors[0][0], &argVectors[0][0]) < 0) {     /* execute the command  */
+                 perror("err");
+                      printf("ERROR: command: %s FAILED\n", argVectors[0][0]);
                  exit(1);
-          }
-         }
-         else {
-             if (execvp(*argv, argv) < 0) {     /* execute the command  */
-                 printf("ERROR: command: %s FAILED\n", argv[0]);
-                 exit(1);
-         }
-     }
+             }
      }
      else {                                  /* for the parent:      */
           while (wait(&status) != pid)       /* wait for completion  */
                ;
      }
+     return 0;
 }
 /*****************
  * Signal handlers
