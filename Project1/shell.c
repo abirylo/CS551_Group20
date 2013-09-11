@@ -423,10 +423,11 @@ int evalWithAliases(char **argv, int argc){
 }
 int has_pipe(char **argv){
     int i=0;
+    int pipecount=0;
     while(1){
             if (argv[i] != NULL){
                 if(strcmp("|",argv[i]) == 0){
-                        return 1;
+                        pipecount++;
                     }
                 i++;
                 }
@@ -434,7 +435,7 @@ int has_pipe(char **argv){
                         break;
                 }
     }
-    return 0;
+    return pipecount;
 }
 int run_cmd(char **argv){
     if (has_pipe(argv)){
