@@ -602,7 +602,8 @@ int evalIfThen(char **argv, int argc)
         if(strcmp("if", argv[i]) == 0 || strcmp("IF", argv[i]) == 0 || strcmp("If", argv[i]) == 0
         || strcmp("elsif", argv[i]) == 0 || strcmp("ELSIF", argv[i]) == 0 || strcmp("Elsif", argv[i]) == 0)
         {
-            start = i + 1;
+            argv[i] = "test";
+            start = i;
             break;
         }
     }
