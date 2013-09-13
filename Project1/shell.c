@@ -11,9 +11,8 @@
 //7. Execute with output redirection to file.
 //      -define OUT,IN fds for processes depending on pipe/redirection combinations
 //8. Execute with output redirection to program.
-//9. Alarm after 5 seconds of execution.
-//   --sleep 5 in parent; send sigterm if prompted yes
-//10. Alarm prompts for termination. 
+//9. Alarm after 5 seconds of execution.						   x
+//10. Alarm prompts for termination.							   x
 //11. Alarm can be "OFF" in PROFILE(Time=-1)                       x
 //12. Alarm can be turned off via alarm off                        x
 //         alarm off
@@ -40,6 +39,7 @@
 #include <ctype.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <sys/time.h>
 #include <fcntl.h>
 #include <sys/wait.h>
 #include <errno.h>
@@ -77,6 +77,15 @@ char *aliasList[2][MAX_ALIAS_COMMANDS];
 
 char *workingdirs[3];
 
+// Timer interrupt variable
+struct sigaction alarm_sa;
+struct itimerval alarm_timer;
+
+// Keep track of the current child PID
+int active_child_pid = -1;
+
+// Constructs
+
 int parseProfile(char *path);
 int parseLine(const char *commandLine, char **argv);
 
@@ -94,6 +103,7 @@ void sigchld_handler(int sig);
 void sigtstp_handler(int sig);
 void sigint_handler(int sig);
 void sigquit_handler(int sig);
+void sigalrm_handler(int sig);
 typedef void handler_t(int);
 handler_t *Signal(int signum, handler_t *handler);
 
@@ -443,12 +453,42 @@ int has_pipe(char **argv){
     return pipecount;
 }
 int run_cmd(char **argv){
+	int status;
+	
+	// First setup signal handler for what to do after ALARM_TIME
+	Signal(SIGALRM, sigalrm_handler);
+	
+	// Next setup the timer
+	alarm_timer.it_value.tv_sec = ALARM_TIME;
+	alarm_timer.it_value.tv_usec = 0;
+	
+	alarm_timer.it_interval.tv_sec = 0;
+	alarm_timer.it_interval.tv_usec = 0;
+	
+	// Now start the virtual timer.  It counts down whenever this process is executing.
+	status = setitimer(ITIMER_REAL, &alarm_timer, NULL);
+	
+	if (0 != status) {
+		fprintf(stderr, "Failed to set timer: %s\n", strerror(errno));
+	}
+	
+	// Now that the timer has been set we can execute normally.
+	
     if (has_pipe(argv)){
         runCommandWithPipes(argv);
     }
     else{
         runCommandNoPipes(argv);
     }
+	
+	// Before we return, we need to invalidate the timer.
+	alarm_timer.it_value.tv_sec = 0;
+	status = setitimer(ITIMER_REAL, &alarm_timer, NULL);
+	
+	if (0 != status) {
+		fprintf(stderr, "Failed to set timer: %s\n", strerror(errno));
+	}
+	
     return 1;
 
     }
@@ -456,87 +496,91 @@ int runCommandNoPipes(char **argv){
     int i=0;
     char *fileoutput=NULL;
     while(1){
-
+		
         if (argv[i] != NULL){
             if(strcmp(">",argv[i]) == 0){
                 if(argv[i+1] !=NULL){
-                printf("Redirect to file: %s \n",argv[i+1]);
-                fileoutput=argv[i+1];
+					printf("Redirect to file: %s \n",argv[i+1]);
+					fileoutput=argv[i+1];
                 }
             }
             i++;
         }
-        else{
-                break;
-            }
+        else {
+			break;
+		}
     }
-             pid_t  pid;
-         int status;
-         if ((pid = fork()) < 0) {     /* fork a child process           */
-              printf("ERROR: fork FAILED; is your process table full?\n");
-              exit(1);
-         }
-         else if (pid == 0) {          /* for the child process:         */
-                  if (execvp(*argv, argv) < 0) {     /* execute the command  */
-                      printf("ERROR: command: %s FAILED\n", argv[0]);
-                      exit(1);
-                  }
-         }
-              else {                                  /* for the parent:      */
-                   while (wait(&status) != pid)       /* wait for completion  */
-                        ;
-              }
-              return 0;
+	pid_t  pid;
+	int status;
+	active_child_pid = pid = fork();
+	if (pid < 0) {				/* fork a child process           */
+		printf("ERROR: fork FAILED; is your process table full?\n");
+		exit(1);
+	}
+	else if (pid == 0) {					/* for the child process:         */
+		if (execvp(*argv, argv) < 0) {     /* execute the command  */
+			printf("ERROR: command: %s FAILED\n", argv[0]);
+			exit(1);
+		}
+	}
+	else {                                  /* for the parent:      */
+		while (wait(&status) != pid)		/* wait for completion  */
+			;
+	}
+	
+	active_child_pid = -1;
+	
+	return 0;
 }
 int runCommandWithPipes(char **argv)
 {
     char* argVectors[64][64];
     int i,j;
     /*for(i=0;i<64;i++){
-        for(j=0;j<128;j++){
-        argVectors[i][j]=(char*)malloc(1024);
-        }
-    }
-    printf("\nsize: %d\n",sizeof(argVectors));
-    */
+	 for(j=0;j<128;j++){
+	 argVectors[i][j]=(char*)malloc(1024);
+	 }
+	 }
+	 printf("\nsize: %d\n",sizeof(argVectors));
+	 */
     i=0;
     j=0;
     int pipechars[MAX_COMMAND_LINE_SIZE];
     int pipecount=0;
     char *fileoutput=NULL;
     while(1){
-
+		
         if (argv[i] != NULL){
             if(strcmp(">",argv[i]) == 0){
                 if(argv[i+1] !=NULL){
-                printf("Redirect to file: %s \n",argv[i+1]);
-                fileoutput=argv[i+1];
+					printf("Redirect to file: %s \n",argv[i+1]);
+					fileoutput=argv[i+1];
                 }
             }
             else if(strcmp("|",argv[i]) == 0){
-                    //printf("Redirect stdout to stdin of command: %s \n pipe number %d\n",argv[i+1],pipecursor+1);
-                    //Mark in the array where the pipe occurs so you can split the argv into multiple argvs later
-                    pipechars[pipecount]=i;
-                    pipecount++;
-                    int k;
-                    //Copy the old argv into a new smaller argv
-                    int base;
-                    if(pipecount>=2){
-                        base=pipechars[pipecount-2]+1;
-                    }
-                    else{
-                        base=0;
-                    }
-                    //printf("current position proc=%d\n",pipecount-1);
-                    for(k=0;k<pipechars[pipecount-1]-base;k++){
-                        //printf("Writing %s to argvectors[%d][%d]\n",argv[k+base],pipecount-1,k);
-                            argVectors[pipecount-1][k]=argv[k+base];
-
-                    }
-                        argVectors[pipecount-1][k+1]=NULL;
-                    }
-
-
+				//printf("Redirect stdout to stdin of command: %s \n pipe number %d\n",argv[i+1],pipecursor+1);
+				//Mark in the array where the pipe occurs so you can split the argv into multiple argvs later
+				pipechars[pipecount]=i;
+				pipecount++;
+				int k;
+				//Copy the old argv into a new smaller argv
+				int base;
+				if(pipecount>=2){
+					base=pipechars[pipecount-2]+1;
+				}
+				else{
+					base=0;
+				}
+				//printf("current position proc=%d\n",pipecount-1);
+				for(k=0;k<pipechars[pipecount-1]-base;k++){
+					//printf("Writing %s to argvectors[%d][%d]\n",argv[k+base],pipecount-1,k);
+					argVectors[pipecount-1][k]=argv[k+base];
+					
+				}
+				argVectors[pipecount-1][k+1]=NULL;
+			}
+			
+			
         }
         else{
             break;
@@ -551,45 +595,48 @@ int runCommandWithPipes(char **argv)
         //printf("current position proc=%d\n",pipecount);
         for(k=0;k<i-base;k++){
             //printf("Writing %s to argvectors[%d][%d]\n",argv[k+base],pipecount,k);
-                argVectors[pipecount][k]=argv[k+base];
-
+			argVectors[pipecount][k]=argv[k+base];
+			
         }
         argVectors[pipecount][k+1]=NULL;
         argVectors[pipecount+1][k+1]=NULL;
-
-
-
+		
+		
+		
     }
     int pipefds[2][pipecount];
     fflush(stdout);
-
-     for(i=0;i<pipecount;i++){
-         //Generate pipes to connect them all
-         pipe(pipefds[i]);
-     }
-     pid_t  pid;
-     int    status;
-
-     if ((pid = fork()) < 0) {     /* fork a child process           */
-          printf("ERROR: fork FAILED; is your process table full?\n");
-          exit(1);
-     }
-     else if (pid == 0) {          /* for the child process:         */
-         //printf("%s,%p",(char*)argVectors[0][0],&argVectors[0][0]);
-            fflush(stdout);
-
-
-             if (execvp((char*)argVectors[0][0], &argVectors[0][0]) < 0) {     /* execute the command  */
-                 perror("err");
-                      printf("ERROR: command: %s FAILED\n", argVectors[0][0]);
-                 exit(1);
-             }
-     }
-     else {                                  /* for the parent:      */
-          while (wait(&status) != pid)       /* wait for completion  */
-               ;
-     }
-     return 0;
+	
+	for(i=0;i<pipecount;i++){
+		//Generate pipes to connect them all
+		pipe(pipefds[i]);
+	}
+	pid_t  pid;
+	int    status;
+	active_child_pid = pid = fork();
+	if (pid < 0) {     /* fork a child process           */
+		printf("ERROR: fork FAILED; is your process table full?\n");
+		exit(1);
+	}
+	else if (pid == 0) {          /* for the child process:         */
+		//printf("%s,%p",(char*)argVectors[0][0],&argVectors[0][0]);
+		fflush(stdout);
+		
+		
+		if (execvp((char*)argVectors[0][0], &argVectors[0][0]) < 0) {     /* execute the command  */
+			perror("err");
+			printf("ERROR: command: %s FAILED\n", argVectors[0][0]);
+			exit(1);
+		}
+	}
+	else {                                  /* for the parent:      */
+		while (wait(&status) != pid)       /* wait for completion  */
+			;
+	}
+	
+	active_child_pid = -1;
+	
+	return 0;
 }
 
 int evalIfThen(char **argv, int argc)
@@ -763,9 +810,36 @@ void sigquit_handler(int sig)
 }
 
 /*
+ * sigalrm_handler - Gets called after ALARM_TIME to prompt user if
+ * they want to kill the child process.
+ */
+void sigalrm_handler(int sig) {
+	printf("Child process (pid: %d) has been running longer than %d seconds, terminate? (y/n): ", active_child_pid, ALARM_TIME);
+	
+	char commandLine[MAX_COMMAND_LINE_SIZE];
+	
+	//read command prompt
+	if ((fgets(commandLine, MAX_COMMAND_LINE_SIZE, stdin) == NULL) && ferror(stdin))
+	{
+		printf("Error Reading Command Line"); //unrecoverable
+		exit(1);
+	}
+	
+	if (commandLine[0] == 'y') {
+		// Kill it with fire
+		kill(active_child_pid, SIGKILL);
+	}
+	else {
+		return;
+	}
+	
+	return;
+}
+
+/*
  * usage - print a help message
  */
-void usage(void) 
+void usage(void)
 {
     printf("Usage: shell [-hp:]\n");
     printf("   -h   print this message\n");
