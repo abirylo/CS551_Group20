@@ -236,7 +236,7 @@ int parseProfile(char *path)
         }
         else if(strcmp("ALARM", variable) == 0 && strcmp("OFF",token) == 0)
         {
-            ALARM_TIME = -1;
+            ALARM_TIME = 0;
         }
         else if(strcmp("ALARM", variable) == 0 && strcmp("ON",token) == 0)
         {
@@ -361,7 +361,7 @@ int evaluate(char **argv, int argc)
         return evalIfThen(argv,argc);
     }
     else if(strcmp("alarm", argv[0]) == 0 && strcmp("off", argv[1]) == 0){
-        ALARM_TIME = -1;
+        ALARM_TIME = 0;
         return 0;
     }
     else if(strcmp("alarm", argv[0]) == 0 && strcmp("on", argv[1]) == 0){
