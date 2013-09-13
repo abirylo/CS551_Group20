@@ -84,6 +84,7 @@ int addAlias(char **argv, int argc);
 int run_cmd(char **argv);
 int runCommandWithPipes(char **argv);
 int runCommandNoPipes(char **argv);
+int evalIfThen(char **argv, int argc);
 
 int evaluate(char **argv, int argc);
 int evalWithAliases(char **argv, int argc);
@@ -345,6 +346,10 @@ int evaluate(char **argv, int argc)
     if(strcmp("exit", argv[0]) == 0){
         exit(0);
     }
+    else if(strcmp("if", argv[0]) == 0 && strcmp("fi", argv[argc-1]) == 0)
+    {
+        return evalIfThen(argv,argc);
+    }
     else if(strcmp("alarm", argv[0]) == 0 && strcmp("off", argv[1]) == 0){
         ALARM_TIME = -1;
         return 0;
@@ -586,6 +591,115 @@ int runCommandWithPipes(char **argv)
      }
      return 0;
 }
+
+int evalIfThen(char **argv, int argc)
+{
+    
+    int i = 0;
+    int start = 0;
+    for(i=0; i<argc; i++)
+    {
+        if(strcmp("if", argv[i]) == 0 || strcmp("IF", argv[i]) == 0 || strcmp("If", argv[i]) == 0
+        || strcmp("elsif", argv[i]) == 0 || strcmp("ELSIF", argv[i]) == 0 || strcmp("Elsif", argv[i]) == 0)
+        {
+            start = i + 1;
+            break;
+        }
+    }
+    // Find then
+    for(i=i; i<argc; i++)
+    {
+        if(strcmp("then", argv[i]) == 0 || strcmp("THEN", argv[i]) == 0 || strcmp("Then", argv[i]) == 0)
+        {
+            argv[i] = NULL;
+            break;
+        }
+    }
+    
+    if(i == argc)
+    {
+        printf("Improper if/then/else/fi Structure 1");
+        return 1;
+    }
+
+    // Fork for exec.
+    int exitCode = 0;
+    int pid = 0;
+    if ((pid = fork()) == 0) 
+    {
+        // exec command
+        execv("/bin/test", &argv[start]);
+        printf("Cannot test arguments.\n");
+        exit(1);
+    }
+    else
+    {
+        waitpid(pid, &exitCode, 0);
+        if(exitCode == 0) // true
+        {
+            // find elsif or else or fi
+            start = i+1;
+            for(i=i+1; i<argc; i++)
+            {
+                if(strcmp("elsif", argv[i]) == 0 || strcmp("ELSIF", argv[i]) == 0 || strcmp("Elsif", argv[i]) == 0 ||
+                    strcmp("else", argv[i]) == 0 || strcmp("ELSE", argv[i]) == 0 || strcmp("Else", argv[i]) == 0 ||
+                    strcmp("fi", argv[i]) == 0 || strcmp("FI", argv[i]) == 0 || strcmp("Fi", argv[i]) == 0)
+                {
+                    argv[i] = NULL;
+                    break;
+                }
+            }
+            if(i == argc)
+            {
+                printf("Improper if/then/else/fi Structure 2");
+                return 1;
+            }
+            return runCommandNoPipes(&argv[start]);
+        }
+        else // false
+        {
+            // find next elsif or else
+            for(i=i+1; i<argc; i++)
+            {
+                if(strcmp("elsif", argv[i]) == 0 || strcmp("ELSIF", argv[i]) == 0 || strcmp("Elsif", argv[i]) == 0)
+                {
+                    return evalIfThen(&argv[i], argc - i);
+                }
+                else if(strcmp("else", argv[i]) == 0 || strcmp("ELSE", argv[i]) == 0 || strcmp("Else", argv[i]) == 0)
+                {
+                    start = i+1;
+                    break;
+                }
+            }
+            if(i == argc)
+            {
+                printf("Improper if/then/else/fi Structure 3");
+                return 1;
+            }
+            //find fi or else or elseif
+            for(i=i+1; i<argc; i++)
+            {
+                if(strcmp("elsif", argv[i]) == 0 || strcmp("ELSIF", argv[i]) == 0 || strcmp("Elsif", argv[i]) == 0 ||
+                    strcmp("else", argv[i]) == 0 || strcmp("ELSE", argv[i]) == 0 || strcmp("Else", argv[i]) == 0 ||
+                    strcmp("fi", argv[i]) == 0 || strcmp("FI", argv[i]) == 0 || strcmp("Fi", argv[i]) == 0)
+                {
+                    argv[i] = NULL;
+                    break; 
+                }
+            }
+            if(i == argc)
+            {
+                printf("Improper if/then/else/fi Structure 4");
+                return 1;
+            }
+            return runCommandNoPipes(&argv[start]);
+        }
+    }
+    
+    return 2;
+}
+
+
 /*****************
  * Signal handlers
  *****************/
