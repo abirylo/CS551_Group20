@@ -22,17 +22,17 @@
 
 //10. Alarm prompts for termination.                               x
 
-//11. Alarm can be "OFF" in PROFILE(Time=-1)                       x
+//11. Alarm can be "OFF" in PROFILE(Time=0)                       x
 
 //12. Alarm can be turned off via alarm off                        x
 //         alarm off
 
 //13. Alias expansion.                                             x
-//         Alias listcontent="ls -l | grep "^d""
+//         Alias listcontent="ls -l | grep '^d'"
 
 //14. Alias namespace duplication verification.                    x
-//         Alias listcontent="ls -l | grep "^d""
-//         Alias listcontent="ls -l | grep "^d""
+//         Alias listcontent="ls -l | grep '^d'"
+//         Alias listcontent="ls -l | grep '^d'"
 
 //15. Global namespace duplication verification for aliases.       /
 //Aliases are expanded once before execution. Any alias using a program name
