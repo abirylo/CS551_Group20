@@ -14,13 +14,13 @@
 
 //6. Execute executable without argument.                          x
 
-//7. Execute with output redirection to file.					   x
+//7. Execute with output redirection to file.                      x
 
-//8. Execute with output redirection to program.				       x
+//8. Execute with output redirection to program.                   x
 
-//9. Alarm after 5 seconds of execution.						       x
+//9. Alarm after 5 seconds of execution.                           x
 
-//10. Alarm prompts for termination.							       x
+//10. Alarm prompts for termination.                               x
 
 //11. Alarm can be "OFF" in PROFILE(Time=-1)                       x
 
@@ -34,7 +34,9 @@
 //         Alias listcontent="ls -l | grep "^d""
 //         Alias listcontent="ls -l | grep "^d""
 
-//15. Global namespace duplication verification for aliases.       ?
+//15. Global namespace duplication verification for aliases.       /
+//Aliases are expanded once before execution. Any alias using a program name
+//as it's own alias name should include the program name in the execution string.
 
 //16. if/then/else/fi                                              x
 //    use /bin/test builtin;
