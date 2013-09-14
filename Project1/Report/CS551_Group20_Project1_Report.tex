@@ -14,7 +14,7 @@
 \usepackage[usenames]{color}
 \usepackage{listings}
 \lstset{ %
-	language=C,                		% choose the language of the code
+	language=bash,                			% choose the language of the code
 	basicstyle=\footnotesize,       			% the size of the fonts that are used for the code
 	numbers=left,                   			% where to put the line-numbers
 	numberstyle=\footnotesize,				% the size of the fonts that are used for the line-numbers
@@ -35,6 +35,79 @@
 \begin{document}
 \maketitle
 
+\section{Basic Operation}
 
+\begin{lstlisting}
+# ./shell
+Oldenv:/root/bin:/usr/local/bin:/bin:/sbin:/usr/bin:/usr/sbin:/usr/pkg/bin:/usr/pkg/sbin:/usr/pkg/X11R6/bin 
+Newenv: /root:/usr/bin:/bin: 
+$
+$pwd
+/root
+$
+$cd project1
+$
+$pwd
+/root/project1
+$
+$ls -alh
+total 146K
+drwxr-xr-x  2 root  operator  576B Sep 14 21:17 .
+drwxr-xr-x  4 root  operator  768B Sep 14 19:36 ..
+-rw-r--r--  1 root  operator  297B Sep 14 19:36 Makefile
+-rw-r--r--  1 root  operator   70B Sep 14 19:37 profile.txt
+-rwxr-xr-x  1 root  operator   60K Sep 14 20:08 shell
+-rw-r--r--  1 root  operator   24K Sep 14 20:08 shell.c
+-rw-r--r--  1 root  operator   60K Sep 14 20:08 shell.o
+$
+$cat profile.txt
+PROMPT=$
+HOME_DIRECTORY=/root
+ALARM=ON
+ALARM_TIME=5
+MAX_ARGUMENTS=128
+$
+$ls -l > output.txt
+$
+$ls
+Makefile	Report		output.txt	profile.txt	shell		shell.c		shell.o
+$cat output.txt
+total 146K
+drwxr-xr-x  2 root  operator  576B Sep 14 21:17 .
+drwxr-xr-x  4 root  operator  768B Sep 14 19:36 ..
+-rw-r--r--  1 root  operator  297B Sep 14 19:36 Makefile
+-rwxr-xr-x  1 root  operator    0B Sep 14 21:17 output.txt
+-rw-r--r--  1 root  operator   70B Sep 14 19:37 profile.txt
+-rwxr-xr-x  1 root  operator   60K Sep 14 20:08 shell
+-rw-r--r--  1 root  operator   24K Sep 14 20:08 shell.c
+-rw-r--r--  1 root  operator   60K Sep 14 20:08 shell.o
+$
+$cat output.txt | wc
+       10      83     511
+$
+$wc output.txt
+       10      83     511 output.txt
+$
+$sleep 10
+Child process (pid: 15098) has been running longer than 5 seconds, terminate? (y/n): y
+Pid 15098 killed.
+$
+$sleep 10
+Child process (pid: 15100) has been running longer than 5 seconds, terminate? (y/n): n
+$
+$sleep 10 | sleep 10
+Child processes (pids: 15101, 15102) have been running longer than 5 seconds, terminate them? (y/n): y
+Pid 15101 killed.
+Pid 15102 killed.
+$
+$if 10 -eq 10 then echo "true" else echo "false" fi
+"true"
+$
+$quit
+ERROR: command: quit FAILED
+$
+$exit
+#
+\end{lstlisting}
 
 \end{document}
