@@ -264,18 +264,25 @@ int parseProfile(char *path)
 
 int parseLine(const char *commandLine, char **argv)
 {
-    static char array[MAX_COMMAND_LINE_SIZE]; //need to be able to maintain referance to this outside function
-    char *buf = array;
-    
+    static char array[MAX_COMMAND_LINE_SIZE]; /* holds local copy of command line */
+    char *buf = array; /* ptr that traverses command line */
+    char *delim; /* points to first space delimiter */
+    int argc; /* number of args */
+	
     strcpy(buf, commandLine);
-    buf[strlen(buf)-1] = ' ';  // replace trailing '\n' with space 
-    while (*buf && (*buf == ' ')) // ignore leading spaces 
+    buf[strlen(buf) - 1] = ' '; /* replace trailing '\n' with space */
+    while (*buf && (*buf == ' ')) /* ignore leading spaces */
         buf++;
-    
-    // Build the argv list 
-    int argc = 0;
-    char *delim = strchr(buf, ' ');
-
+	
+    /* Build the argv list */
+    argc = 0;
+    if (*buf == '\'') {
+        buf++;
+        delim = strchr(buf, '\'');
+    } else {
+        delim = strchr(buf, ' ');
+    }
+	
     while (delim) {
         argv[argc++] = buf;
         *delim = '\0';
@@ -290,7 +297,7 @@ int parseLine(const char *commandLine, char **argv)
             delim = strchr(buf, ' ');
         }
     }
-    argv[argc] = NULL;
+    argv[argc] = '\0';
     
     return argc;
 }
