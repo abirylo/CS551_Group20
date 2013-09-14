@@ -81,8 +81,9 @@ char *workingdirs[3];
 struct sigaction alarm_sa;
 struct itimerval alarm_timer;
 
-// Keep track of the current child PID
-int active_child_pid = -1;
+// Keep track of the current child PID(s)
+int active_child_pids[10];
+int num_active_child_pids = 0;
 
 // Constructs
 
@@ -512,7 +513,7 @@ int runCommandNoPipes(char **argv){
     }
 	pid_t  pid;
 	int status;
-	active_child_pid = pid = fork();
+	active_child_pids[num_active_child_pids] = pid = fork();
 	if (pid < 0) {				/* fork a child process           */
 		printf("ERROR: fork FAILED; is your process table full?\n");
 		exit(1);
@@ -524,11 +525,13 @@ int runCommandNoPipes(char **argv){
 		}
 	}
 	else {                                  /* for the parent:      */
+		num_active_child_pids++;
 		while (wait(&status) != pid)		/* wait for completion  */
 			;
+		num_active_child_pids--;
 	}
 	
-	active_child_pid = -1;
+	active_child_pids[num_active_child_pids] = -1;
 	
 	return 0;
 }
@@ -613,7 +616,7 @@ int runCommandWithPipes(char **argv)
 	}
 	pid_t  pid;
 	int    status;
-	active_child_pid = pid = fork();
+	active_child_pids[0] = pid = fork();
 	if (pid < 0) {     /* fork a child process           */
 		printf("ERROR: fork FAILED; is your process table full?\n");
 		exit(1);
@@ -634,7 +637,7 @@ int runCommandWithPipes(char **argv)
 			;
 	}
 	
-	active_child_pid = -1;
+	active_child_pids[0] = -1;
 	
 	return 0;
 }
@@ -814,7 +817,21 @@ void sigquit_handler(int sig)
  * they want to kill the child process.
  */
 void sigalrm_handler(int sig) {
-	printf("Child process (pid: %d) has been running longer than %d seconds, terminate? (y/n): ", active_child_pid, ALARM_TIME);
+	int this_child_pid;
+
+	if (num_active_child_pids == 1) {
+		printf("Child process (pid: %d) has been running longer than %d seconds, terminate? (y/n): ", active_child_pids[0], ALARM_TIME);
+	}
+	else {
+		printf("Child processes (pids: %d", active_child_pids[0]);
+		
+		for (this_child_pid = 1; this_child_pid < num_active_child_pids; this_child_pid++) {
+			printf(", %d", active_child_pids[this_child_pid]);
+		}
+		
+		printf(") have been running longer than %d seconds, terminate them? (y/n): ", ALARM_TIME);
+	}
+	
 	
 	char commandLine[MAX_COMMAND_LINE_SIZE];
 	
@@ -826,8 +843,12 @@ void sigalrm_handler(int sig) {
 	}
 	
 	if (commandLine[0] == 'y') {
-		// Kill it with fire
-		kill(active_child_pid, SIGKILL);
+		// Kill it/them with fire
+		for (this_child_pid = 0; this_child_pid < num_active_child_pids; this_child_pid++) {
+			kill(active_child_pids[this_child_pid], SIGKILL);
+		}
+		
+		num_active_child_pids = 0;
 	}
 	else {
 		return;
