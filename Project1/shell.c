@@ -44,6 +44,9 @@
 #include <sys/wait.h>
 #include <errno.h>
 
+// Maximum number of child processes
+#define MAX_CHILD_PROCESSES 10
+
 #define MAX_ALIAS_COMMANDS 256
 //Number of aliases allowed to be defined at once.
 #define MAX_PROFILE_SIZE 127
@@ -82,7 +85,7 @@ struct sigaction alarm_sa;
 struct itimerval alarm_timer;
 
 // Keep track of the current child PID(s)
-int active_child_pids[10];
+int active_child_pids[MAX_CHILD_PROCESSES];
 int num_active_child_pids = 0;
 
 // Constructs
@@ -535,109 +538,76 @@ int runCommandNoPipes(char **argv){
 	
 	return 0;
 }
-int runCommandWithPipes(char **argv)
+int runCommandWithPipes(char **orig_argv)
 {
-    char* argVectors[64][64];
-    int i,j;
-    /*for(i=0;i<64;i++){
-	 for(j=0;j<128;j++){
-	 argVectors[i][j]=(char*)malloc(1024);
-	 }
-	 }
-	 printf("\nsize: %d\n",sizeof(argVectors));
-	 */
-    i=0;
-    j=0;
-    int pipechars[MAX_COMMAND_LINE_SIZE];
-    int pipecount=0;
-    char *fileoutput=NULL;
-    while(1){
+	char cmdline[MAX_COMMAND_LINE_CHARACTERS];
+	strcpy(cmdline, orig_argv[0]);
+	char *this_arg;
+	int i = 1;
+	while ((this_arg = orig_argv[i]) != NULL) {
+		strcat(cmdline, " ");
+		strcat(cmdline, this_arg);
 		
-        if (argv[i] != NULL){
-            if(strcmp(">",argv[i]) == 0){
-                if(argv[i+1] !=NULL){
-					printf("Redirect to file: %s \n",argv[i+1]);
-					fileoutput=argv[i+1];
-                }
-            }
-            else if(strcmp("|",argv[i]) == 0){
-				//printf("Redirect stdout to stdin of command: %s \n pipe number %d\n",argv[i+1],pipecursor+1);
-				//Mark in the array where the pipe occurs so you can split the argv into multiple argvs later
-				pipechars[pipecount]=i;
-				pipecount++;
-				int k;
-				//Copy the old argv into a new smaller argv
-				int base;
-				if(pipecount>=2){
-					base=pipechars[pipecount-2]+1;
-				}
-				else{
-					base=0;
-				}
-				//printf("current position proc=%d\n",pipecount-1);
-				for(k=0;k<pipechars[pipecount-1]-base;k++){
-					//printf("Writing %s to argvectors[%d][%d]\n",argv[k+base],pipecount-1,k);
-					argVectors[pipecount-1][k]=argv[k+base];
-					
-				}
-				argVectors[pipecount-1][k+1]=NULL;
-			}
-			
-			
-        }
-        else{
-            break;
-        }
-        i++;
-    }
-    //Copy the last argument list (the one at the end with no terminating pipe char)
-    if(pipecount>=1){
-        int k;
-        //Copy the old argv into a new smaller argv
-        int base=pipechars[pipecount-1]+1;
-        //printf("current position proc=%d\n",pipecount);
-        for(k=0;k<i-base;k++){
-            //printf("Writing %s to argvectors[%d][%d]\n",argv[k+base],pipecount,k);
-			argVectors[pipecount][k]=argv[k+base];
-			
-        }
-        argVectors[pipecount][k+1]=NULL;
-        argVectors[pipecount+1][k+1]=NULL;
-		
-		
-		
-    }
-    int pipefds[2][pipecount];
-    fflush(stdout);
+		i++;
+	}
 	
-	for(i=0;i<pipecount;i++){
-		//Generate pipes to connect them all
-		pipe(pipefds[i]);
-	}
-	pid_t  pid;
-	int    status;
-	active_child_pids[0] = pid = fork();
-	if (pid < 0) {     /* fork a child process           */
-		printf("ERROR: fork FAILED; is your process table full?\n");
-		exit(1);
-	}
-	else if (pid == 0) {          /* for the child process:         */
-		//printf("%s,%p",(char*)argVectors[0][0],&argVectors[0][0]);
-		fflush(stdout);
+    sigset_t mask;
+    // Array of arguments
+    char *argv[MAX_COMMAND_LINE_SIZE];
+    // Array of arguments for extras
+    char *argv_extras[MAX_COMMAND_LINE_SIZE];
+    // Check to see if this command is to be executed in bg
+    parseLine(cmdline, argv);
+    // Pointer to a place in the command line where the output/input redirection or pipe is
+    char *p = cmdline;
+	
+	sigemptyset(&mask);
+    sigaddset(&mask, SIGCHLD);
+	
+	strsep(&p, "|");
+	parseLine(cmdline, argv);
+	
+	int pfd[2];
+	pid_t pid1, pid2;
+	pipe(pfd);
+	
+	if ((pid1 = fork()) == 0) {
+		sigprocmask(SIG_UNBLOCK, &mask, NULL);
 		
+		dup2(pfd[1], STDOUT_FILENO);
+		close(pfd[0]);
+		close(pfd[1]);
 		
-		if (execvp((char*)argVectors[0][0], &argVectors[0][0]) < 0) {     /* execute the command  */
-			perror("err");
-			printf("ERROR: command: %s FAILED\n", argVectors[0][0]);
-			exit(1);
+		if (execvp(argv[0], argv) < 0) {
+			// First command was invalid!
+			printf("%s: Command not found.\n", argv[0]);
+			exit(0);
 		}
 	}
-	else {                                  /* for the parent:      */
-		while (wait(&status) != pid)       /* wait for completion  */
-			;
+	
+	parseLine(p, argv_extras);
+	
+	if ((pid2 = fork()) == 0) {
+		sigprocmask(SIG_UNBLOCK, &mask, NULL);
+		
+		dup2(pfd[0], STDIN_FILENO);
+		close(pfd[0]);
+		close(pfd[1]);
+		if (execvp(argv_extras[0], argv_extras) < 0) {
+			// Second command was invalid!
+			printf("%s: Command not found.\n", argv_extras[0]);
+			exit(0);
+		}
 	}
 	
-	active_child_pids[0] = -1;
+	// Cleanup
+	close(pfd[0]);
+	close(pfd[1]);
+	
+	// Reap
+	waitpid(pid1, NULL, 0);
+	waitpid(pid2, NULL, 0);
+	
 	
 	return 0;
 }
