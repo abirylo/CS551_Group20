@@ -2,30 +2,46 @@
 //#. Requirement                                                Status
 //1. Invoke from ash.                                              x
 //        ./shell
+
 //2. Execute PROFILE file                                          x
 //        ./shell -p .
+
 //3. Define "prompt sign" in PROFILE                               x
+
 //4. Define home directory in PROFILE                              x
+
 //5. Access executables in /bin and /usr/bin                       x
+
 //6. Execute executable without argument.                          x
+
 //7. Execute with output redirection to file.					   x
-//8. Execute with output redirection to program.				   x
-//9. Alarm after 5 seconds of execution.						   x
-//10. Alarm prompts for termination.							   x
+
+//8. Execute with output redirection to program.				       x
+
+//9. Alarm after 5 seconds of execution.						       x
+
+//10. Alarm prompts for termination.							       x
+
 //11. Alarm can be "OFF" in PROFILE(Time=-1)                       x
+
 //12. Alarm can be turned off via alarm off                        x
 //         alarm off
+
 //13. Alias expansion.                                             x
 //         Alias listcontent="ls -l | grep "^d""
+
 //14. Alias namespace duplication verification.                    x
 //         Alias listcontent="ls -l | grep "^d""
 //         Alias listcontent="ls -l | grep "^d""
+
 //15. Global namespace duplication verification for aliases.       ?
-//16. if/then/else/fi
+
+//16. if/then/else/fi                                              x
 //    use /bin/test builtin;
 //    execp command between if/then redir stdout to /dev/null; 
 //    if child returns 0, == true, exec then
 //    if child returns 1, == false, exec else
+
 //17. Terminate only with exit                                     x
 //18. Handle signals where possible (CTRL+C, CTRL+Z)               x
 //19. Handle CTRL+D better
@@ -101,6 +117,7 @@ int evalIfThen(char **argv, int argc);
 int evaluate(char **argv, int argc);
 int evalWithAliases(char **argv, int argc);
 void usage(void); 
+void freeMemory();
 
 void sigchld_handler(int sig);
 void sigtstp_handler(int sig);
@@ -183,7 +200,6 @@ int main(int argc, char **argv)
         {
             printf("Error Reading Command Line");
         } 
-         
         //parse data
         int count = parseLine(commandLine, args);
         
@@ -192,6 +208,14 @@ int main(int argc, char **argv)
         
         fflush(stdout);
     }   
+    freeMemory();
+}
+void freeMemory(){
+	int i;
+	for(i=0;i<aliasSize;i++){
+    free(aliasList[i][0]);
+    free(aliasList[i][1]);
+	}
 }
 
 int parseProfile(char *path)
@@ -366,7 +390,10 @@ int addAlias(char **argv, int argc){
         {
            if(strcmp(aliasList[i][0], lhs) == 0){
                printf("You already defined %s as an alias with value %s \n",aliasList[i][0],aliasList[i][1]);
-               return 1;
+               printf("Overwriting.. with %s\n",rhs);
+               free(aliasList[i][0]);
+               free(aliasList[i][1]);
+               //return 1;
            }
         }
 
@@ -438,29 +465,6 @@ int evaluate(char **argv, int argc)
     //printf("Basic command not found! : %s \n",argv[0]);
     //find if command is in /bin or /usr/bin
     return 0;
-}
-char** expandedLinetoArgv(char *expandedLine, char **argv){
-
-    char *search=" ";
-    char *arg;
-    //String tokenizing is a destructive process
-    char parsableLine[MAX_COMMAND_LINE_CHARACTERS];
-    strcpy(parsableLine,expandedLine);
-    arg=strtok(parsableLine,search);
-    int i=0;
-    argv[i]=arg;
-    i++;
-    while(1){
-        arg=strtok(NULL,search);
-        if(arg != NULL){
-            argv[i]=arg;
-            i++;
-        }
-        else{
-            break;
-        }
-    }
-    return argv;
 }
 int evalWithAliases(char **argv, int argc){
         char expandedline[MAX_COMMAND_LINE_CHARACTERS];
