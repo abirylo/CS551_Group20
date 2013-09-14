@@ -270,7 +270,13 @@ int parseLine(const char *commandLine, char **argv)
     int argc; /* number of args */
 	
     strcpy(buf, commandLine);
-    buf[strlen(buf) - 1] = ' '; /* replace trailing '\n' with space */
+	if (strchr(buf, '\n')) {
+		buf[strlen(buf) - 1] = ' '; /* replace trailing '\n' with space */
+	}
+	else {
+		buf[strlen(buf)] = ' ';	// Replace last character with space
+	}
+    
     while (*buf && (*buf == ' ')) /* ignore leading spaces */
         buf++;
 	
