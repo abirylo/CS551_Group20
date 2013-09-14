@@ -111,7 +111,13 @@ typedef void handler_t(int);
 handler_t *Signal(int signum, handler_t *handler);
 
 int main(int argc, char **argv)
-{       
+{
+	// Init the active children pid container
+	int i;
+	for (i = 0; i < MAX_CHILD_PROCESSES; i++) {
+		active_child_pids[i] = -1;
+	}
+	
     char *profilePath = "./profile.txt";
     char c;
     // Redirect stderr to stdout
@@ -137,7 +143,6 @@ int main(int argc, char **argv)
     workingdirs[0]=HOME_DIRECTORY;
     workingdirs[1]=USR_BIN_DIR;
     workingdirs[2]=BIN_DIR;
-    int i=0;
     char env[MAX_COMMAND_LINE_SIZE];
     strcpy(env,"PATH= ");
     for(i=0;i<NUM_WORKING_DIRS;i++){
@@ -169,8 +174,7 @@ int main(int argc, char **argv)
         if ((fgets(commandLine, MAX_COMMAND_LINE_SIZE, stdin) == NULL) 
                 && ferror(stdin))
         {
-            printf("Error Reading Command Line"); //unrecoverable 
-            exit(1);
+            printf("Error Reading Command Line");
         } 
          
         //parse data
@@ -559,16 +563,16 @@ int runCommandNoPipes(char **argv){
 			}
 		}
 		else {                                  /* for the parent:      */
-			num_active_child_pids++;
+			num_active_child_pids = 1;
 			waitpid(pid, NULL, 0);		/* wait for completion  */
-			num_active_child_pids--;
+			num_active_child_pids = 0;
 		}
 		
 		active_child_pids[num_active_child_pids] = -1;
 	}
 	else {
 		pid_t  pid;
-		active_child_pids[num_active_child_pids] = pid = fork();
+		active_child_pids[0] = pid = fork();
 		if (pid < 0) {				/* fork a child process           */
 			printf("ERROR: fork FAILED; is your process table full?\n");
 			exit(1);
@@ -580,12 +584,12 @@ int runCommandNoPipes(char **argv){
 			}
 		}
 		else {                                  /* for the parent:      */
-			num_active_child_pids++;
+			num_active_child_pids = 1;
 			waitpid(pid, NULL, 0);		/* wait for completion  */
-			num_active_child_pids--;
+			num_active_child_pids = 0;
 		}
 		
-		active_child_pids[num_active_child_pids] = -1;
+		active_child_pids[0] = -1;
 	}
 	
 	return 0;
@@ -637,7 +641,7 @@ int runCommandWithPipes(char **argv)
 		}
 	}
 	else {
-		num_active_child_pids++;
+		num_active_child_pids = 1;
 	}
 	
 	parseLine(p, argv_extras);
@@ -655,7 +659,7 @@ int runCommandWithPipes(char **argv)
 		}
 	}
 	else {
-		num_active_child_pids++;
+		num_active_child_pids = 2;
 	}
 	
 	// Cleanup
@@ -665,10 +669,10 @@ int runCommandWithPipes(char **argv)
 	// Reap
 	waitpid(pid1, NULL, 0);
 	active_child_pids[0] = -1;
-	num_active_child_pids--;
+	num_active_child_pids = 1;
 	waitpid(pid2, NULL, 0);
 	active_child_pids[1] = -1;
-	num_active_child_pids--;
+	num_active_child_pids = 0;
 	
 	
 	return 0;
@@ -870,8 +874,8 @@ void sigalrm_handler(int sig) {
 	//read command prompt
 	if ((fgets(commandLine, MAX_COMMAND_LINE_SIZE, stdin) == NULL) && ferror(stdin))
 	{
-		printf("Error Reading Command Line"); //unrecoverable
-		exit(1);
+		puts("...nevermind, it's/they're done running now.");
+		return;
 	}
 	
 	if (commandLine[0] == 'y') {
@@ -879,15 +883,17 @@ void sigalrm_handler(int sig) {
 		for (this_child_pid = 0; this_child_pid < num_active_child_pids; this_child_pid++) {
 			kill(active_child_pids[this_child_pid], SIGKILL);
 			printf("Pid %d killed.\n", active_child_pids[this_child_pid]);
+			active_child_pids[this_child_pid] = -1;
 		}
 		
 		num_active_child_pids = 0;
 	}
 	else {
+		for (this_child_pid = 0; this_child_pid < num_active_child_pids; this_child_pid++) {
+			waitpid(active_child_pids[this_child_pid], NULL, 0);
+		}
 		return;
 	}
-	
-	return;
 }
 
 /*
