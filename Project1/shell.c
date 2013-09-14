@@ -276,16 +276,21 @@ int parseLine(const char *commandLine, char **argv)
     int argc = 0;
     char *delim = strchr(buf, ' ');
 
-    while(delim && argc < MAX_ARGUMENTS-1) 
-    {
+    while (delim) {
         argv[argc++] = buf;
         *delim = '\0';
         buf = delim + 1;
-        while (*buf && (*buf == ' ')) // ignore spaces
+        while (*buf && (*buf == ' ')) /* ignore spaces */
             buf++;
-        delim = strchr(buf, ' ');
+		
+        if (*buf == '\'') {
+            buf++;
+            delim = strchr(buf, '\'');
+        } else {
+            delim = strchr(buf, ' ');
+        }
     }
-    argv[argc] = NULL; // last argv is null to end list
+    argv[argc] = NULL;
     
     return argc;
 }
@@ -497,54 +502,91 @@ int run_cmd(char **argv){
 
     }
 int runCommandNoPipes(char **argv){
-    int i=0;
-    char *fileoutput=NULL;
-    while(1){
+	char cmdline[MAX_COMMAND_LINE_CHARACTERS];
+	strcpy(cmdline, argv[0]);
+	char *this_arg;
+	int i = 1;
+	while ((this_arg = argv[i]) != NULL) {
+		strcat(cmdline, " ");
+		strcat(cmdline, this_arg);
 		
-        if (argv[i] != NULL){
-            if(strcmp(">",argv[i]) == 0){
-                if(argv[i+1] !=NULL){
-					printf("Redirect to file: %s \n",argv[i+1]);
-					fileoutput=argv[i+1];
-                }
-            }
-            i++;
-        }
-        else {
-			break;
-		}
-    }
-	pid_t  pid;
-	int status;
-	active_child_pids[num_active_child_pids] = pid = fork();
-	if (pid < 0) {				/* fork a child process           */
-		printf("ERROR: fork FAILED; is your process table full?\n");
-		exit(1);
-	}
-	else if (pid == 0) {					/* for the child process:         */
-		if (execvp(*argv, argv) < 0) {     /* execute the command  */
-			printf("ERROR: command: %s FAILED\n", argv[0]);
-			exit(1);
-		}
-	}
-	else {                                  /* for the parent:      */
-		num_active_child_pids++;
-		while (wait(&status) != pid)		/* wait for completion  */
-			;
-		num_active_child_pids--;
+		i++;
 	}
 	
-	active_child_pids[num_active_child_pids] = -1;
+	if (strchr(cmdline, '>')) {
+		char *f = cmdline;
+		char *filename[255];
+		int fd;
+		char *first_argv[MAX_COMMAND_LINE_SIZE];
+		
+		strsep(&f, ">");
+		printf("f: %s\n", f);
+		parseLine(f, filename);
+		printf("filename0: %s\n", filename[0]);
+		
+		
+		pid_t  pid;
+		active_child_pids[num_active_child_pids] = pid = fork();
+		if (pid < 0) {				/* fork a child process           */
+			printf("ERROR: fork FAILED; is your process table full?\n");
+			exit(1);
+		}
+		else if (pid == 0) {					/* for the child process:         */
+			fd = open(filename[0], O_WRONLY | O_CREAT | O_TRUNC, 0777);
+			
+			parseLine(cmdline, first_argv);
+			
+			if (dup2(fd, STDOUT_FILENO) != STDOUT_FILENO) {
+				printf("%s: Error creating file.\n", filename[0]);
+				exit(0);
+			}
+			
+			close(fd);
+			
+			if (execvp(first_argv[0], first_argv) < 0) {     /* execute the command  */
+				printf("ERROR: command: %s FAILED\n", argv[0]);
+				exit(1);
+			}
+		}
+		else {                                  /* for the parent:      */
+			num_active_child_pids++;
+			waitpid(pid, NULL, 0);		/* wait for completion  */
+			num_active_child_pids--;
+		}
+		
+		active_child_pids[num_active_child_pids] = -1;
+	}
+	else {
+		pid_t  pid;
+		active_child_pids[num_active_child_pids] = pid = fork();
+		if (pid < 0) {				/* fork a child process           */
+			printf("ERROR: fork FAILED; is your process table full?\n");
+			exit(1);
+		}
+		else if (pid == 0) {					/* for the child process:         */
+			if (execvp(*argv, argv) < 0) {     /* execute the command  */
+				printf("ERROR: command: %s FAILED\n", argv[0]);
+				exit(1);
+			}
+		}
+		else {                                  /* for the parent:      */
+			num_active_child_pids++;
+			waitpid(pid, NULL, 0);		/* wait for completion  */
+			num_active_child_pids--;
+		}
+		
+		active_child_pids[num_active_child_pids] = -1;
+	}
 	
 	return 0;
 }
-int runCommandWithPipes(char **orig_argv)
+int runCommandWithPipes(char **argv)
 {
 	char cmdline[MAX_COMMAND_LINE_CHARACTERS];
-	strcpy(cmdline, orig_argv[0]);
+	strcpy(cmdline, argv[0]);
 	char *this_arg;
 	int i = 1;
-	while ((this_arg = orig_argv[i]) != NULL) {
+	while ((this_arg = argv[i]) != NULL) {
 		strcat(cmdline, " ");
 		strcat(cmdline, this_arg);
 		
@@ -553,11 +595,11 @@ int runCommandWithPipes(char **orig_argv)
 	
     sigset_t mask;
     // Array of arguments
-    char *argv[MAX_COMMAND_LINE_SIZE];
+    char *this_argv[MAX_COMMAND_LINE_SIZE];
     // Array of arguments for extras
     char *argv_extras[MAX_COMMAND_LINE_SIZE];
     // Check to see if this command is to be executed in bg
-    parseLine(cmdline, argv);
+    parseLine(cmdline, this_argv);
     // Pointer to a place in the command line where the output/input redirection or pipe is
     char *p = cmdline;
 	
@@ -565,29 +607,32 @@ int runCommandWithPipes(char **orig_argv)
     sigaddset(&mask, SIGCHLD);
 	
 	strsep(&p, "|");
-	parseLine(cmdline, argv);
+	parseLine(cmdline, this_argv);
 	
 	int pfd[2];
 	pid_t pid1, pid2;
 	pipe(pfd);
 	
-	if ((pid1 = fork()) == 0) {
+	if ((active_child_pids[0] = pid1 = fork()) == 0) {
 		sigprocmask(SIG_UNBLOCK, &mask, NULL);
 		
 		dup2(pfd[1], STDOUT_FILENO);
 		close(pfd[0]);
 		close(pfd[1]);
 		
-		if (execvp(argv[0], argv) < 0) {
+		if (execvp(this_argv[0], this_argv) < 0) {
 			// First command was invalid!
-			printf("%s: Command not found.\n", argv[0]);
+			printf("%s: Command not found.\n", this_argv[0]);
 			exit(0);
 		}
+	}
+	else {
+		num_active_child_pids++;
 	}
 	
 	parseLine(p, argv_extras);
 	
-	if ((pid2 = fork()) == 0) {
+	if ((active_child_pids[1] = pid2 = fork()) == 0) {
 		sigprocmask(SIG_UNBLOCK, &mask, NULL);
 		
 		dup2(pfd[0], STDIN_FILENO);
@@ -599,6 +644,9 @@ int runCommandWithPipes(char **orig_argv)
 			exit(0);
 		}
 	}
+	else {
+		num_active_child_pids++;
+	}
 	
 	// Cleanup
 	close(pfd[0]);
@@ -606,7 +654,11 @@ int runCommandWithPipes(char **orig_argv)
 	
 	// Reap
 	waitpid(pid1, NULL, 0);
+	active_child_pids[0] = -1;
+	num_active_child_pids--;
 	waitpid(pid2, NULL, 0);
+	active_child_pids[1] = -1;
+	num_active_child_pids--;
 	
 	
 	return 0;
@@ -816,6 +868,7 @@ void sigalrm_handler(int sig) {
 		// Kill it/them with fire
 		for (this_child_pid = 0; this_child_pid < num_active_child_pids; this_child_pid++) {
 			kill(active_child_pids[this_child_pid], SIGKILL);
+			printf("Pid %d killed.\n", active_child_pids[this_child_pid]);
 		}
 		
 		num_active_child_pids = 0;
