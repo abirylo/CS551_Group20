@@ -8,9 +8,8 @@
 //4. Define home directory in PROFILE                              x
 //5. Access executables in /bin and /usr/bin                       x
 //6. Execute executable without argument.                          x
-//7. Execute with output redirection to file.
-//      -define OUT,IN fds for processes depending on pipe/redirection combinations
-//8. Execute with output redirection to program.
+//7. Execute with output redirection to file.					   x
+//8. Execute with output redirection to program.				   x
 //9. Alarm after 5 seconds of execution.						   x
 //10. Alarm prompts for termination.							   x
 //11. Alarm can be "OFF" in PROFILE(Time=-1)                       x
@@ -533,9 +532,7 @@ int runCommandNoPipes(char **argv){
 		char *first_argv[MAX_COMMAND_LINE_SIZE];
 		
 		strsep(&f, ">");
-		printf("f: %s\n", f);
 		parseLine(f, filename);
-		printf("filename0: %s\n", filename[0]);
 		
 		
 		pid_t  pid;
