@@ -153,7 +153,14 @@ int main(int argc, char **argv)
     printf("Oldenv:%s \n",getenv("PATH"));
     putenv(env);
     printf("Newenv:%s \n",getenv("PATH"));
-
+    
+    // Set root directory to defualt 
+    struct stat  st;
+    if(stat(HOME_DIRECTORY, &st) >= 0 && S_ISDIR(st.st_mode) > 0)
+    {
+        chdir(HOME_DIRECTORY); 
+    }
+    
     //signal handlers
     Signal(SIGINT,  sigint_handler);   // ctrl-c 
     Signal(SIGTSTP, sigtstp_handler);  // ctrl-z 
@@ -230,6 +237,7 @@ int parseProfile(char *path)
             if(stat(token, &statbuf) >= 0 && S_ISDIR(statbuf.st_mode) > 0)
             {
                 strcpy(HOME_DIRECTORY, token);
+                chdir(HOME_DIRECTORY); 
             }
             else
             {
@@ -384,6 +392,25 @@ int evaluate(char **argv, int argc)
     else if(strcmp("if", argv[0]) == 0 && strcmp("fi", argv[argc-1]) == 0)
     {
         return evalIfThen(argv,argc);
+    }
+    else if(strcmp("cd", argv[0]) == 0){
+        //default directory 
+        if(argv[1] == NULL)
+        {
+            argv[1] = HOME_DIRECTORY;
+        }
+        //check is valid directory 
+        struct stat  st;
+        if(stat(argv[1], &st) >= 0 && S_ISDIR(st.st_mode) > 0)
+        {
+            chdir(argv[1]); 
+        }
+        else
+        {
+            printf("The directory %s does not exist. Cannot cd.\n",argv[1]);
+        }
+        
+        return 0;
     }
     else if(strcmp("alarm", argv[0]) == 0 && strcmp("off", argv[1]) == 0){
         ALARM_TIME = 0;
