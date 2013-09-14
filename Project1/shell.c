@@ -320,7 +320,7 @@ int parseLine(const char *commandLine, char **argv)
 }
 int addAlias(char **argv, int argc){
     //Parse line with example:
-    //Alias listcontent=�ls�
+    //Alias listcontent="ls -l"
     //Alias listcontent="ls -l | grep "
     //pointer to the alias itself (key)
     char *alias;
@@ -373,10 +373,11 @@ int addAlias(char **argv, int argc){
     }
     //prepare to truncate the  quotes from the rhs
     memmove( &rhs[(strlen(rhs) - 2)], &"\0" , 1);
-    aliasList[aliasSize][0]=lhs;
-    aliasList[aliasSize][1]=rhs+1;
+    aliasList[aliasSize][0]=(char*) malloc(strlen(lhs));
+    aliasList[aliasSize][1]=(char*) malloc(strlen(rhs));
+    strcpy(aliasList[aliasSize][0],lhs);
+    strcpy(aliasList[aliasSize][1],rhs+1);
     aliasSize++;
-
     return 0;
 }
 
@@ -483,9 +484,8 @@ int evalWithAliases(char **argv, int argc){
                     strcat(expandedline," ");
 
             }
-            char* newargv[MAX_ARGUMENTS];
-            expandedLinetoArgv(expandedline,newargv);
-            run_cmd(newargv);
+            parseLine(expandedline,argv);
+            run_cmd(argv);
         return 0;
 }
 int has_pipe(char **argv){
