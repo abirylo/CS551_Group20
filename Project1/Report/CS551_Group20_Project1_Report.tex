@@ -1,6 +1,6 @@
 \documentclass{article}
 \title{CS 551 Project 1 Report}
-\author{Group 20}
+\author{Group 20 \\\\ Ryan Attard, Sean Wallace,Velin Sedlarski,Adrian Birylo\\\\}
 \date{September 14, 2013}
 
 \usepackage{fullpage}
@@ -34,7 +34,7 @@
 
 \begin{document}
 \maketitle
-
+\pagebreak 
 \section{Basic Operation}
 
 \begin{lstlisting}
@@ -128,5 +128,23 @@ $
 $exit
 #
 \end{lstlisting}
+
+
+\section{Caveats}
+\begin{itemize}
+\item Only one pipe allowed
+\item if CMD then CMD1 else CMD3 fi
+\item No semicolon delimited command support 
+\item No nested ifs
+\end{itemize}
+\section{Exception Handling}
+\begin{itemize}
+\item CTRL+C is handled by the SIGINT handler
+\item CTRL+Z is handled by the SIGTSTP handler
+\item SIGQUIT is handled by the SIGQUIT handler
+\item SIGALRM is handled by the SIGALRM handler
+\item CTRL+D signifies end of pipe. This closes the file descriptor handle for stdin, and can't easily be handled
+\item Execution Errors: since errors in child processes happen in completely separate processes, the error messages simply print to the screen (due to redirection of stderr to stdout during initialization)
+\end{itemize}
 
 \end{document}
