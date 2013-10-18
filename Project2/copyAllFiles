@@ -1,0 +1,7 @@
+#! /bin/sh
+
+cp callnr.h    /usr/src/include/minix/callnr.h
+cp table.c     /usr/src/servers/pm/table.c
+cp proto.h     /usr/src/servers/pm/proto.h
+cp misc.c      /usr/src/servers/pm/misc.c
+cp igipc.h     /usr/include/igipc.h
