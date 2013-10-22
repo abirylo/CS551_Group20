@@ -501,7 +501,12 @@ char *brk_addr;
  *===========================================================================*/
 int do_IGLookup() 
 {
-    printf("This is do_IGLookup\n");
+    int abc = 5;
+    if( m_in.m1_i1 == 33 )
+        printf("This is do_IGLookup, %i, %i, %i\n", m_in.m1_i1, abc, 7);
+    else
+        printf("This does not work");
+    
     return 0;
 }
 
@@ -510,7 +515,7 @@ int do_IGLookup()
  *===========================================================================*/
 int do_IGCreate() 
 {
-    printf("This is do_IGCreate\n");
+    printf("This is do_IGCreate, %i\n", m_in.m1_i1);
     return 0;
 }
 
@@ -519,7 +524,7 @@ int do_IGCreate()
  *===========================================================================*/
 int do_IGPublisher() 
 {
-    printf("This is do_IGPublisher\n");
+    printf("This is do_IGPublisher, %i\n", m_in.m1_i1);
     return 0;
 }
 
@@ -528,7 +533,7 @@ int do_IGPublisher()
  *===========================================================================*/
 int do_IGSubscriber() 
 {
-    printf("This is do_IGSubscriber\n");
+    printf("This is do_IGSubscriber, %i\n", m_in.m1_i1);
     return 0;
 }
 
@@ -537,7 +542,7 @@ int do_IGSubscriber()
  *===========================================================================*/
 int do_IGPublish() 
 {
-    printf("This is do_IGPublish\n");
+    printf("This is do_IGPublish, %i, %i\n", m_in.m1_i1, m_in.m1_i2);
     return 0;
 }
 
@@ -546,6 +551,6 @@ int do_IGPublish()
  *===========================================================================*/
 int do_IGRetrive() 
 {
-    printf("This is do_IGRetrive\n");
+    printf("This is do_IGRetrive,, %i, %i\n", m_in.m1_i1, m_in.m1_i2);
     return 0;
 }

@@ -56,12 +56,13 @@ int do_getepinfo(void);
 int do_getepinfo_o(void);
 int do_svrctl(void);
 int do_getsetpriority(void);
-int do_IGLookup(void);
-int do_IGCreate(void);
-int do_IGPublisher(void);
-int do_IGSubscriber(void);
-int do_IGPublish(void);
-int do_IGRetrive(void);
+
+int do_IGLookup();
+int do_IGCreate();
+int do_IGPublisher();
+int do_IGSubscriber();
+int do_IGPublish();
+int do_IGRetrive();
 
 /* schedule.c */
 void sched_init(void);

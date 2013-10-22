@@ -2,11 +2,15 @@
 
 int main(void)
 {
-    IGLookup();
-    IGCreate();
-    IGPublisher();
-    IGSubscriber();
-    IGPublish();
-    IGRetrive();
+    int groupName = 34;
+    
+    printf("Hello %i", 18);
+    
+    IGLookup(groupName);
+    IGCreate(groupName);
+    IGPublisher(groupName);
+    IGSubscriber(groupName);
+    IGPublish(groupName, groupName);
+    IGRetrive(groupName, groupName);
     return 0;
 }
