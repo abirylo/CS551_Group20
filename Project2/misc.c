@@ -496,17 +496,35 @@ char *brk_addr;
 	return 0;
 }
 
+#define MAX_SIZE_IG 10
+
+struct ig
+{
+    int id;
+    int[MAX_SIZE_IG] memberID;
+    int[MAX_SIZE_IG] cursorPos;
+    int[MAX_SIZE_IG] pubOrSub; //1 for pub 2 for Sub
+    int[5] messageList;
+    int sizeMemberID;
+    int sizeMessageList;
+};
+
+struct ig[MAX_SIZE_IG] interestGroup;
+int intrestGroupSize = 0;
+
 /*===========================================================================*
  *				do_IGLookup				     *
  *===========================================================================*/
 int do_IGLookup() 
 {
-    int abc = 5;
-    if( m_in.m1_i1 == 33 )
-        printf("This is do_IGLookup, %i, %i, %i\n", m_in.m1_i1, abc, 7);
-    else
-        printf("This does not work");
-    
+    int i=0;
+    for(i=0, i<intrestGroupSize && i<MAX_SIZE_IG; i++)
+    {
+        if(ig[i].id == m_in.m1_i1)
+        {
+            return 1;
+        }
+    }
     return 0;
 }
 
@@ -515,8 +533,14 @@ int do_IGLookup()
  *===========================================================================*/
 int do_IGCreate() 
 {
-    printf("This is do_IGCreate, %i\n", m_in.m1_i1);
-    return 0;
+    if( do_IGLookup() == 0 && interestGroupSize<MAX_SIZE_IG)
+    {
+        ig[interestGroupSize].id = m_in.m1_i1;
+        ig[interestGroupSize].sizeMemberID = 0;
+        ig[interestGroupSize].sizeMessageList = 0;
+        return 1;
+    }
+    return 0;  
 }
 
 /*===========================================================================*
@@ -524,7 +548,21 @@ int do_IGCreate()
  *===========================================================================*/
 int do_IGPublisher() 
 {
-    printf("This is do_IGPublisher, %i\n", m_in.m1_i1);
+    if( do_IGLookup() == 0 )
+    {
+        //find the IG
+         for(i=0, i<intrestGroupSize && i<MAX_SIZE_IG; i++)
+        {
+            if(ig[i].id == m_in.m1_i2 && ig[i].sizeMemberID < MAX_SIZE_IG)
+            {
+                ig[i].memberID[ig[i].sizeMemberID] = m_in.m1_i1;
+                ig[i].cursorPos[ig[i].sizeMemberID] = 0;
+                ig[i].pubOrSub[ig[i].sizeMemberID] = 1;
+                ig[i].sizeMemberID++;
+                return 1;
+            }
+        }
+    }
     return 0;
 }
 
@@ -533,7 +571,21 @@ int do_IGPublisher()
  *===========================================================================*/
 int do_IGSubscriber() 
 {
-    printf("This is do_IGSubscriber, %i\n", m_in.m1_i1);
+    if( do_IGLookup() == 0 )
+    {
+        //find the IG
+         for(i=0, i<intrestGroupSize && i<MAX_SIZE_IG; i++)
+        {
+            if(ig[i].id == m_in.m1_i2 && ig[i].sizeMemberID < MAX_SIZE_IG)
+            {
+                ig[i].memberID[ig[i].sizeMemberID] = m_in.m1_i1;
+                ig[i].cursorPos[ig[i].sizeMemberID] = 0;
+                ig[i].pubOrSub[ig[i].sizeMemberID] = 2;
+                ig[i].sizeMemberID++;
+                return 1;
+            }
+        }
+    }
     return 0;
 }
 
@@ -542,7 +594,9 @@ int do_IGSubscriber()
  *===========================================================================*/
 int do_IGPublish() 
 {
-    printf("This is do_IGPublish, %i, %i\n", m_in.m1_i1, m_in.m1_i2);
+    
+     
+    
     return 0;
 }
 
@@ -551,6 +605,8 @@ int do_IGPublish()
  *===========================================================================*/
 int do_IGRetrive() 
 {
-    printf("This is do_IGRetrive,, %i, %i\n", m_in.m1_i1, m_in.m1_i2);
+    
+    
+    
     return 0;
 }

@@ -15,32 +15,36 @@ int IGCreate (int groupName)
     return( _syscall(PM_PROC_NR, IGCREATE, &m) );
 }
 
-int IGPublisher (int groupName)
+int IGPublisher (int id, int groupName)
 {
     message m;
-    m.m1_i1 = groupName;
+    m.m1_i1 = id;
+    m.m1_i2 = groupName;
     return( _syscall(PM_PROC_NR, IGPUBLISHER, &m) );
 }
 
-int IGSubscriber (int groupName)
+int IGSubscriber (int id, int groupNameint)
 {
     message m;
-    m.m1_i1 = groupName;
+    m.m1_i1 = id;
+    m.m1_i2 = groupName;
     return( _syscall(PM_PROC_NR, IGSUBSCRIBER, &m) );
 }
 
-int IGPublish (int groupName, int messageSend)
+int IGPublish (int id, int groupName, int messageSend)
 {
     message m;
-    m.m1_i1 = groupName;
-    m.m1_i2 = messageSend;
+    m.m1_i1 = id;
+    m.m1_i2 = groupName;
+    m.m1_i3 = messageSend;
     return( _syscall(PM_PROC_NR, IGPUBLISH, &m) );
 }
 
-int IGRetrive (int groupName, int messageSend)
+int IGRetrive (int id, int groupName, int messageSend)
 {
-    message m;
-    m.m1_i1 = groupName;
-    m.m1_i2 = messageSend;
+    message m
+    m.m1_i1 = id;
+    m.m1_i2 = groupName;
+    m.m1_i3 = messageSend;
     return( _syscall(PM_PROC_NR, IGRETRIVE, &m) );
 }
