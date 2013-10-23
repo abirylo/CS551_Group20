@@ -57,6 +57,7 @@ int do_getepinfo_o(void);
 int do_svrctl(void);
 int do_getsetpriority(void);
 
+int do_IGInit();
 int do_IGLookup();
 int do_IGCreate();
 int do_IGPublisher();

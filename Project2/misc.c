@@ -498,34 +498,57 @@ char *brk_addr;
 
 #define MAX_SIZE_IG 10
 
-struct ig
+struct interestGroup
 {
     int id;
-    int[MAX_SIZE_IG] memberID;
-    int[MAX_SIZE_IG] cursorPos;
-    int[MAX_SIZE_IG] pubOrSub; //1 for pub 2 for Sub
-    int[5] messageList;
+    int memberID[MAX_SIZE_IG];
+    int cursorPos[MAX_SIZE_IG];
+    int pubOrSub[MAX_SIZE_IG]; //1 for pub 2 for Sub
+    int messageList[5];
     int sizeMemberID;
     int sizeMessageList;
+    int startMessageList;
+    int endMessageList;
 };
 
-struct ig[MAX_SIZE_IG] interestGroup;
-int intrestGroupSize = 0;
+struct interestGroup ig[MAX_SIZE_IG];
+int interestGroupSize = 0;
+
+/*===========================================================================*
+ *				do_IGLookup				     *
+ *===========================================================================*/
+int do_IGInit()
+{
+    //sem_destroy(&mutex);
+    //sem_init(&mutex, 0, 1); 
+    //reset everything
+    for(int i=0; i<MAX_SIZE_IG; i++)
+    {
+        ig[i].id = -1;
+        ig[i].sizeMemberID = 0;
+        ig[i].sizeMessageList = 0;
+        ig[i].startMessageList = 0;
+        ig[i].endMessageList = 0;
+        interestGroupSize = 0;
+    }
+    
+    return 1;
+}
 
 /*===========================================================================*
  *				do_IGLookup				     *
  *===========================================================================*/
 int do_IGLookup() 
 {
-    int i=0;
-    for(i=0, i<intrestGroupSize && i<MAX_SIZE_IG; i++)
+    for(int i=0; i<interestGroupSize && i<MAX_SIZE_IG; i++)
     {
-        if(ig[i].id == m_in.m1_i1)
+        if(ig[i].id == m_in.m1_i2)
         {
             return 1;
         }
     }
     return 0;
+    
 }
 
 /*===========================================================================*
@@ -535,12 +558,16 @@ int do_IGCreate()
 {
     if( do_IGLookup() == 0 && interestGroupSize<MAX_SIZE_IG)
     {
-        ig[interestGroupSize].id = m_in.m1_i1;
+        ig[interestGroupSize].id = m_in.m1_i2;
         ig[interestGroupSize].sizeMemberID = 0;
         ig[interestGroupSize].sizeMessageList = 0;
+        ig[interestGroupSize].startMessageList = 0;
+        ig[interestGroupSize].endMessageList = 0;
+        interestGroupSize++;
         return 1;
     }
-    return 0;  
+    return 0; 
+    
 }
 
 /*===========================================================================*
@@ -548,10 +575,10 @@ int do_IGCreate()
  *===========================================================================*/
 int do_IGPublisher() 
 {
-    if( do_IGLookup() == 0 )
+    if( do_IGLookup() == 1 )
     {
         //find the IG
-         for(i=0, i<intrestGroupSize && i<MAX_SIZE_IG; i++)
+        for(int i=0; i<interestGroupSize && i<MAX_SIZE_IG; i++)
         {
             if(ig[i].id == m_in.m1_i2 && ig[i].sizeMemberID < MAX_SIZE_IG)
             {
@@ -571,10 +598,10 @@ int do_IGPublisher()
  *===========================================================================*/
 int do_IGSubscriber() 
 {
-    if( do_IGLookup() == 0 )
+    if( do_IGLookup() == 1 )
     {
         //find the IG
-         for(i=0, i<intrestGroupSize && i<MAX_SIZE_IG; i++)
+        for(int i=0; i<interestGroupSize && i<MAX_SIZE_IG; i++)
         {
             if(ig[i].id == m_in.m1_i2 && ig[i].sizeMemberID < MAX_SIZE_IG)
             {
@@ -594,9 +621,39 @@ int do_IGSubscriber()
  *===========================================================================*/
 int do_IGPublish() 
 {
-    
-     
-    
+    if( do_IGLookup() == 1 )
+    {
+        //find the IG
+        for(int i=0; i<interestGroupSize && i<MAX_SIZE_IG; i++)
+        {
+            if(ig[i].id == m_in.m1_i2 && ig[i].sizeMemberID < MAX_SIZE_IG)
+            {
+                //find if part of group
+                for(int j=0; j < ig[i].sizeMemberID && i<MAX_SIZE_IG; j++)
+                {
+                    if(ig[i].memberID[j] == m_in.m1_i1)
+                    {
+                        if(ig[i].sizeMessageList < 5)
+                        {
+                            ig[i].messageList[ig[i].endMessageList] = m_in.m1_i3;
+                            ig[i].sizeMessageList++;
+                            ig[i].endMessageList = (ig[i].endMessageList+1) % 5;
+                            
+                            //check if any cursor positions are -1 then set to endMessageList
+                            for(int k=0; k < ig[i].sizeMemberID && k<MAX_SIZE_IG; k++)
+                            {
+                                if(ig[i].cursorPos[k] == -1)
+                                {
+                                    ig[i].cursorPos[k] = ig[i].startMessageList;
+                                }
+                            }
+                            return 1;
+                        }
+                    }
+                }
+            }
+        }
+    } 
     return 0;
 }
 
@@ -605,8 +662,51 @@ int do_IGPublish()
  *===========================================================================*/
 int do_IGRetrive() 
 {
-    
-    
-    
-    return 0;
+    if( do_IGLookup() == 1 )
+    {
+        //find the IG
+        for(int i=0; i<interestGroupSize && i<MAX_SIZE_IG; i++)
+        {
+            if(ig[i].id == m_in.m1_i2 && ig[i].sizeMemberID < MAX_SIZE_IG)
+            {
+                //find if part of group
+                for(int j=0; j < ig[i].sizeMemberID && i<MAX_SIZE_IG; j++)
+                {
+                    if(ig[i].memberID[j] == m_in.m1_i1)
+                    {
+                        if(ig[i].cursorPos[j] >= ig[i].startMessageList && ig[i].cursorPos[j] <= ig[i].endMessageList && ig[i].cursorPos[j] != -1)
+                        {
+                            m_in.m1_i3 = ig[i].messageList[ig[i].cursorPos[j]];
+                            ig[i].cursorPos[j] = (ig[i].cursorPos[j]+1)%5;
+                            if(ig[i].cursorPos[j] == ig[i].endMessageList)
+                            {
+                                ig[i].cursorPos[j] = -1;
+                            }
+                            
+                            //find lowest cursorPos then set end to the next lowest 
+                            int checkMin = 0;
+                            for(int k=0; k < ig[i].sizeMemberID && k<MAX_SIZE_IG; k++)
+                            {
+                                if(ig[i].cursorPos[k] == ig[i].startMessageList)
+                                {
+                                    checkMin = 1;
+                                }
+                            }
+                            if(checkMin == 0)
+                            {
+                                ig[i].startMessageList = (ig[i].startMessageList+1)%5;
+                                ig[i].sizeMessageList--;
+                            }
+                            return m_in.m1_i3;
+                        }
+                        else
+                        {
+                            return -1;
+                        }
+                    }   
+                }
+            }
+        }
+    }
+    return -1;
 }
