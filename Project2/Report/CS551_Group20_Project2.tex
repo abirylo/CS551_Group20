@@ -6,6 +6,8 @@
 \usepackage{fullpage}
 \usepackage{enumerate}
 
+\usepackage{graphicx}
+
 \usepackage{fancyvrb}
 \DefineVerbatimEnvironment{code}{Verbatim}{fontsize=\small}
 \DefineVerbatimEnvironment{example}{Verbatim}{fontsize=\small}
@@ -59,7 +61,19 @@ This function publishes the message if the groupID is registered and the callerI
 This function retrieves the message if the groupID is registered and the callerID is registered as a subscriber to the groupID and the function returns a positive number which is the message. If there are no messages in the buffer then the function return -1. Also if the callerID is not part of the groupID or a subscribe to the groupID it will not retrieve the message and return -1.
 
 
-\section{Caveats}
+\section{Design}
+The design of the IPC system call is such that it was added to the Process Management (PM) service. Below is a block diagram of how the IPC is implemented and what is in the user space and what is a service and in the kernel space. 
+
+\begin{figure}[!h]
+\center{
+\includegraphics[width=\textwidth]{FlowChart.png}
+\caption{Flow Chart}
+}
+\end{figure}
+
+\section{Discussion}
+In general deadlock can not occur since there are no blocking calls but a poorly written program can go into deadlock. Since there is no blocking calls a process is never waiting to get or put data in the IPC. Since the calls are not blocking they can fail and it is the responsibility of the programmer to make sure to recover from a failure gracefully and retry. 
+
 
 
 \end{document}
