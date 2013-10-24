@@ -52,6 +52,6 @@ int IGRetrive (int id, int groupName, int *messageRecive)
     m.m1_i1 = id;
     m.m1_i2 = groupName;
     int r = _syscall(PM_PROC_NR, IGRETRIVE, &m);
-    *messageRecive = m.m1_i2;
+    *messageRecive = r;
     return r;
 }

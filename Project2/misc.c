@@ -582,8 +582,18 @@ int do_IGPublisher()
         {
             if(ig[i].id == m_in.m1_i2 && ig[i].sizeMemberID < MAX_SIZE_IG)
             {
+                //find if memberID exist
+                for(int j=0; j<ig[i].sizeMemberID && j<MAX_SIZE_IG; j++)
+                {
+                    //if member exists just add it as a sub/pub
+                    if(ig[i].memberID[j] == m_in.m1_i1)
+                    {
+                        ig[i].pubOrSub[j] = ig[i].pubOrSub[j] + 1;
+                        return 1;
+                    }
+                }
+                //else memberID doesn't exist yet create an entry for it. 
                 ig[i].memberID[ig[i].sizeMemberID] = m_in.m1_i1;
-                ig[i].cursorPos[ig[i].sizeMemberID] = 0;
                 ig[i].pubOrSub[ig[i].sizeMemberID] = 1;
                 ig[i].sizeMemberID++;
                 return 1;
@@ -605,8 +615,20 @@ int do_IGSubscriber()
         {
             if(ig[i].id == m_in.m1_i2 && ig[i].sizeMemberID < MAX_SIZE_IG)
             {
+                //find if memberID exist
+                for(int j=0; j<ig[i].sizeMemberID && j<MAX_SIZE_IG; j++)
+                {
+                    //if member exists just add it as a sub/pub
+                    if(ig[i].memberID[j] == m_in.m1_i1)
+                    {
+                        ig[i].cursorPos[j] = ig[i].startMessageList;
+                        ig[i].pubOrSub[j] = ig[i].pubOrSub[j] + 2;
+                        return 1;
+                    }
+                }
+                //else memberID doesn't exist yet create an entry for it. 
                 ig[i].memberID[ig[i].sizeMemberID] = m_in.m1_i1;
-                ig[i].cursorPos[ig[i].sizeMemberID] = 0;
+                ig[i].cursorPos[ig[i].sizeMemberID] = ig[i].startMessageList;
                 ig[i].pubOrSub[ig[i].sizeMemberID] = 2;
                 ig[i].sizeMemberID++;
                 return 1;
@@ -631,7 +653,7 @@ int do_IGPublish()
                 //find if part of group
                 for(int j=0; j < ig[i].sizeMemberID && i<MAX_SIZE_IG; j++)
                 {
-                    if(ig[i].memberID[j] == m_in.m1_i1)
+                    if(ig[i].memberID[j] == m_in.m1_i1 && (ig[i].pubOrSub[j] == 1 || ig[i].pubOrSub[j] == 3))
                     {
                         if(ig[i].sizeMessageList < 5)
                         {
@@ -672,7 +694,7 @@ int do_IGRetrive()
                 //find if part of group
                 for(int j=0; j < ig[i].sizeMemberID && i<MAX_SIZE_IG; j++)
                 {
-                    if(ig[i].memberID[j] == m_in.m1_i1)
+                    if(ig[i].memberID[j] == m_in.m1_i1 && (ig[i].pubOrSub[j] == 2 || ig[i].pubOrSub[j] == 3))
                     {
                         if(ig[i].cursorPos[j] >= ig[i].startMessageList && ig[i].cursorPos[j] <= ig[i].endMessageList && ig[i].cursorPos[j] != -1)
                         {
