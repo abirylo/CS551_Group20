@@ -752,17 +752,21 @@ char *do_IGRetrive()
 		return 0;
 	}
 	
-	struct message *picked
-	
 	struct subscriber *thisSubscriber = processInSubscribers(requesting_pid, targetIntrestGroup);
 	
 	if (thisSubscriber != NULL) {
 		if (targetIntrestGroup.num_messages > 0) {
-			// Record that this PID has picked up the message
+			// Starting from the end of the array, work backwards 
+			// Just pick the last message, easiest that way.
+			struct message *target_message = targetIntrestGroup.messages[targetIntrestGroup.num_messages - 1];
+			
+			// Check to make sure first that
 			struct message_list *this_message_list = thisSubscriber.read_messages;
 			if (this_message_list == NULL) {
-				this_message_list.message =
+				this_message_list.message = target_message;
 			}
+			
+			// Now check to see if every subscriber has picked up this message and it can be deleted.
 		}
 	}
 	
