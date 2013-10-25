@@ -510,6 +510,7 @@ char *brk_addr;
 #define MAX_GROUP_NAME_LENGTH	255
 
 struct message {
+	int message_id;
 	int sending_pid;
 	char message[MAX_MESSAGE_SIZE];
 };
@@ -545,6 +546,7 @@ struct interestGroup {
 static struct interestGroup ig[MAX_SIZE_IG];
 static int numIntrestGroups = 0;
 static int nextIntrestGroupID = 0;
+static int nextMessageID = 0;
 
 int cleanupIntrestGroupArray() {
 	// This method gets called whenever a hole in the array is created as to always ensure that it's as tight as possible.
@@ -714,10 +716,6 @@ int do_IGPublish()
 	
 	sys_datacopy(m_in.m_source, m_in.m1_p1, PM_PROC_NR, message, MAX_MESSAGE_SIZE);
 	
-	struct message *this_message = (struct message *) malloc(sizeof(struct message));
-	this_message.message = message;
-	this_message.sending_pid = sending_pid;
-	
 	struct intrestGroup *targetIntrestGroup = findIGByID(intrest_group_id);
 	
 	if (targetIntrestGroup == NULL) {
@@ -728,6 +726,13 @@ int do_IGPublish()
 		if (targetIntrestGroup.num_messages >= MAX_GROUP_MESSAGES) {
 			return 0;
 		}
+		
+		struct message *this_message = (struct message *) malloc(sizeof(struct message));
+		this_message.message = message;
+		this_message.sending_pid = sending_pid;
+		this_message.message_id = nextMessageID;
+		
+		nextMessageID++;
 		
 		targetIntrestGroup.messages[targetIntrestGroup.num_messages] = this_message;
 		targetIntrestGroup.num_messages++;
@@ -756,9 +761,8 @@ char *do_IGRetrive()
 	
 	if (thisSubscriber != NULL) {
 		if (targetIntrestGroup.num_messages > 0) {
-			// Starting from the end of the array, work backwards 
-			// Just pick the last message, easiest that way.
-			struct message *target_message = targetIntrestGroup.messages[targetIntrestGroup.num_messages - 1];
+			// Starting from the end of the array, work backwards looking for a mesage that this PID hasn't yet picked up.
+			
 			
 			// Check to make sure first that
 			struct message_list *this_message_list = thisSubscriber.read_messages;
