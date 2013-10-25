@@ -496,59 +496,121 @@ char *brk_addr;
 	return 0;
 }
 
-#define MAX_SIZE_IG 10
 
-struct interestGroup
-{
-    int id;
-    int memberID[MAX_SIZE_IG];
-    int cursorPos[MAX_SIZE_IG];
-    int pubOrSub[MAX_SIZE_IG]; //1 for pub 2 for Sub
-    int messageList[5];
-    int sizeMemberID;
-    int sizeMessageList;
-    int startMessageList;
-    int endMessageList;
-};
 
-struct interestGroup ig[MAX_SIZE_IG];
-int interestGroupSize = 0;
+
 
 /*===========================================================================*
- *				do_IGLookup				     *
+ *				Project 2 Modification - Start			     *
  *===========================================================================*/
-int do_IGInit()
-{
-    //sem_destroy(&mutex);
-    //sem_init(&mutex, 0, 1); 
-    //reset everything
-    for(int i=0; i<MAX_SIZE_IG; i++)
-    {
-        ig[i].id = -1;
-        ig[i].sizeMemberID = 0;
-        ig[i].sizeMessageList = 0;
-        ig[i].startMessageList = 0;
-        ig[i].endMessageList = 0;
-        interestGroupSize = 0;
-    }
-    
-    return 1;
+
+#define MAX_GROUP_MESSAGES		5
+#define MAX_SIZE_IG				100
+#define MAX_MESSAGE_SIZE		1024
+#define MAX_GROUP_NAME_LENGTH	255
+
+struct message {
+	int sending_pid;
+	char message[MAX_MESSAGE_SIZE];
+};
+
+struct message_list {
+	struct message message;
+	struct message_list *next_message;
+};
+
+struct subscriber {
+	int pid;
+	struct message_list read_messages;
+};
+
+struct publisher {
+	int pid;
+};
+
+struct interestGroup {
+    int id;
+	char *group_name;
+	
+	int num_subscribers;
+	int num_publishers;
+	int num_messages;
+	
+    struct subscriber subscribers[MAX_SIZE_IG];
+	struct publisher publishers[MAX_SIZE_IG];
+	struct message messages[MAX_GROUP_MESSAGES];
+};
+
+// TODO: Rename this variable
+static struct interestGroup ig[MAX_SIZE_IG];
+static int numIntrestGroups = 0;
+static int nextIntrestGroupID = 0;
+
+int cleanupIntrestGroupArray() {
+	// This method gets called whenever a hole in the array is created as to always ensure that it's as tight as possible.
+	int i;
+	
+	for (i = 0; i < numIntrestGroups; i++) {
+		struct intrestGroup *thisIntrestGroup = ig[i];
+		
+		if (thisIntrestGroup == NULL) {
+			if (i + 1 < numIntrestGroups) {
+				// Move the IG in the next spot back one.
+				ig[i] = ig[i+1];
+				ig[i+1] = NULL;
+			}
+		}
+	}
+}
+
+struct intrestGroup *findIGByID(int target_id) {
+	int i;
+	for (i = 0; i < numIntrestGroups; i++) {
+		struct intrestGroup *thisIntrestGroup = ig[i];
+		
+		if (thisIntrestGroup.id == target_id) {
+			return thisIntrestGroup;
+		}
+	}
+	
+	return NULL;
+}
+
+struct publisher *processInPublishers(int target_pid, struct intrestGroup) {
+	int i;
+	
+	for (i = 0; i < MAX_SIZE_IG; i++) {
+		struct publisher *thisPublisher = interestGroup.publishers[i];
+		
+		if (thisPublisher.pid == target_pid) {
+			return thisPublisher;
+		}
+	}
+	
+	return NULL;
+}
+
+struct subscriber *processInSubscribers(int target_pid, struct intrestGroup) {
+	int i;
+	
+	for (i = 0; i < MAX_SIZE_IG; i++) {
+		struct subscriber *thisSubscriber = interestGroup.subscribers[i];
+		
+		if (thisSubscriber.pid == target_pid) {
+			return thisSubscriber;
+		}
+	}
+	
+	return NULL;
 }
 
 /*===========================================================================*
  *				do_IGLookup				     *
  *===========================================================================*/
-int do_IGLookup() 
+struct intrestGroup *do_IGLookup()
 {
-    for(int i=0; i<interestGroupSize && i<MAX_SIZE_IG; i++)
-    {
-        if(ig[i].id == m_in.m1_i2)
-        {
-            return 1;
-        }
-    }
-    return 0;
-    
+	printf("\n-----IGLookup called.-----\n");
+    return ig;
 }
 
 /*===========================================================================*
@@ -556,16 +618,26 @@ int do_IGLookup()
  *===========================================================================*/
 int do_IGCreate() 
 {
-    if( do_IGLookup() == 0 && interestGroupSize<MAX_SIZE_IG)
-    {
-        ig[interestGroupSize].id = m_in.m1_i2;
-        ig[interestGroupSize].sizeMemberID = 0;
-        ig[interestGroupSize].sizeMessageList = 0;
-        ig[interestGroupSize].startMessageList = 0;
-        ig[interestGroupSize].endMessageList = 0;
-        interestGroupSize++;
-        return 1;
-    }
+	printf("\n-----IGCreate called.-----\n");
+	
+	// Check to make sure there's still space.
+	if (numIntrestGroups >= MAX_SIZE_IG) {
+		return -1;
+	}
+	
+	struct intrestGroup thisIntrestGroup = ig[numIntrestGroups];
+	
+	// Assign the next ID and increment.
+	thisIntrestGroup.id = nextIntrestGroupID;
+	nextIntrestGroupID++;
+	
+	// Copy across the name of the group to a local variable.
+	char newGroupName[MAX_GROUP_NAME_LENGTH];
+	sys_datacopy(m_in.m_source, m_in.m1_p1, PM_PROC_NR, newGroupName, MAX_GROUP_NAME_LENGTH);
+	thisIntrestGroup.group_name = newGroupName;
+	
+	thisIntrestGroup.num_messages = 0;
+
     return 0; 
     
 }
@@ -575,31 +647,27 @@ int do_IGCreate()
  *===========================================================================*/
 int do_IGPublisher() 
 {
-    if( do_IGLookup() == 1 )
-    {
-        //find the IG
-        for(int i=0; i<interestGroupSize && i<MAX_SIZE_IG; i++)
-        {
-            if(ig[i].id == m_in.m1_i2 && ig[i].sizeMemberID < MAX_SIZE_IG)
-            {
-                //find if memberID exist
-                for(int j=0; j<ig[i].sizeMemberID && j<MAX_SIZE_IG; j++)
-                {
-                    //if member exists just add it as a sub/pub
-                    if(ig[i].memberID[j] == m_in.m1_i1)
-                    {
-                        ig[i].pubOrSub[j] = ig[i].pubOrSub[j] + 1;
-                        return 1;
-                    }
-                }
-                //else memberID doesn't exist yet create an entry for it. 
-                ig[i].memberID[ig[i].sizeMemberID] = m_in.m1_i1;
-                ig[i].pubOrSub[ig[i].sizeMemberID] = 1;
-                ig[i].sizeMemberID++;
-                return 1;
-            }
-        }
-    }
+	printf("\n-----IGPublisher called.-----\n");
+	
+	int process_id = m_in.m1_i1;
+	int intrest_group_id = m_in.m1_i2;
+	
+	struct intrestGroup *targetIntrestGroup = findIGByID(intrest_group_id);
+	
+	if (targetIntrestGroup == NULL) {
+		return 0;
+	}
+	
+	if (processInPublishers(process_id, targetIntrestGroup) == NULL) {
+		struct publisher *new_publisher = (struct publisher *) malloc(sizeof(struct publisher *));
+		new_publisher.pid = process_id;
+		
+		targetIntrestGroup.publishers[targetIntrestGroup.num_publishers] = new_publisher;
+		targetIntrestGroup.num_publishers++;
+		
+		return 1;
+	}
+	
     return 0;
 }
 
@@ -608,33 +676,28 @@ int do_IGPublisher()
  *===========================================================================*/
 int do_IGSubscriber() 
 {
-    if( do_IGLookup() == 1 )
-    {
-        //find the IG
-        for(int i=0; i<interestGroupSize && i<MAX_SIZE_IG; i++)
-        {
-            if(ig[i].id == m_in.m1_i2 && ig[i].sizeMemberID < MAX_SIZE_IG)
-            {
-                //find if memberID exist
-                for(int j=0; j<ig[i].sizeMemberID && j<MAX_SIZE_IG; j++)
-                {
-                    //if member exists just add it as a sub/pub
-                    if(ig[i].memberID[j] == m_in.m1_i1)
-                    {
-                        ig[i].cursorPos[j] = ig[i].startMessageList;
-                        ig[i].pubOrSub[j] = ig[i].pubOrSub[j] + 2;
-                        return 1;
-                    }
-                }
-                //else memberID doesn't exist yet create an entry for it. 
-                ig[i].memberID[ig[i].sizeMemberID] = m_in.m1_i1;
-                ig[i].cursorPos[ig[i].sizeMemberID] = ig[i].startMessageList;
-                ig[i].pubOrSub[ig[i].sizeMemberID] = 2;
-                ig[i].sizeMemberID++;
-                return 1;
-            }
-        }
-    }
+	printf("\n-----IGSubscriber called.-----\n");
+	
+	int process_id = m_in.m1_i1;
+	int intrest_group_id = m_in.m1_i2;
+	
+	struct intrestGroup *targetIntrestGroup = findIGByID(intrest_group_id);
+	
+	if (targetIntrestGroup == NULL) {
+		return 0;
+	}
+	
+	if (processInSubscribers(process_id, targetIntrestGroup) == NULL) {
+		struct subscriber *new_subscriber = (struct subscriber *) malloc(sizeof(struct subscriber *));
+		new_subscriber.pid = process_id;
+		new_subscriber.read_messages = NULL;
+		
+		targetIntrestGroup.subscribers[targetIntrestGroup.num_subscribers] = new_subscriber;
+		targetIntrestGroup.num_subscribers++;
+		
+		return 1;
+	}
+
     return 0;
 }
 
@@ -643,92 +706,69 @@ int do_IGSubscriber()
  *===========================================================================*/
 int do_IGPublish() 
 {
-    if( do_IGLookup() == 1 )
-    {
-        //find the IG
-        for(int i=0; i<interestGroupSize && i<MAX_SIZE_IG; i++)
-        {
-            if(ig[i].id == m_in.m1_i2 && ig[i].sizeMemberID < MAX_SIZE_IG)
-            {
-                //find if part of group
-                for(int j=0; j < ig[i].sizeMemberID && i<MAX_SIZE_IG; j++)
-                {
-                    if(ig[i].memberID[j] == m_in.m1_i1 && (ig[i].pubOrSub[j] == 1 || ig[i].pubOrSub[j] == 3))
-                    {
-                        if(ig[i].sizeMessageList < 5)
-                        {
-                            ig[i].messageList[ig[i].endMessageList] = m_in.m1_i3;
-                            ig[i].sizeMessageList++;
-                            ig[i].endMessageList = (ig[i].endMessageList+1) % 5;
-                            
-                            //check if any cursor positions are -1 then set to endMessageList
-                            for(int k=0; k < ig[i].sizeMemberID && k<MAX_SIZE_IG; k++)
-                            {
-                                if(ig[i].cursorPos[k] == -1)
-                                {
-                                    ig[i].cursorPos[k] = ig[i].startMessageList;
-                                }
-                            }
-                            return 1;
-                        }
-                    }
-                }
-            }
-        }
-    } 
+	printf("\n-----IGPublish called.-----\n");
+	
+	int sending_pid = m_in.m1_i1
+	int intrest_group_id = m_in.m1_i2;
+	char message[MAX_MESSAGE_SIZE];
+	
+	sys_datacopy(m_in.m_source, m_in.m1_p1, PM_PROC_NR, message, MAX_MESSAGE_SIZE);
+	
+	struct message *this_message = (struct message *) malloc(sizeof(struct message));
+	this_message.message = message;
+	this_message.sending_pid = sending_pid;
+	
+	struct intrestGroup *targetIntrestGroup = findIGByID(intrest_group_id);
+	
+	if (targetIntrestGroup == NULL) {
+		return 0;
+	}
+	
+	if (processInPublishers(sending_pid, targetIntrestGroup) != NULL) {
+		if (targetIntrestGroup.num_messages >= MAX_GROUP_MESSAGES) {
+			return 0;
+		}
+		
+		targetIntrestGroup.messages[targetIntrestGroup.num_messages] = this_message;
+		targetIntrestGroup.num_messages++;
+		
+		return 1;
+	}
+
     return 0;
 }
 
 /*===========================================================================*
  *				do_IGRetrive				     *
  *===========================================================================*/
-int do_IGRetrive() 
+char *do_IGRetrive()
 {
-    if( do_IGLookup() == 1 )
-    {
-        //find the IG
-        for(int i=0; i<interestGroupSize && i<MAX_SIZE_IG; i++)
-        {
-            if(ig[i].id == m_in.m1_i2 && ig[i].sizeMemberID < MAX_SIZE_IG)
-            {
-                //find if part of group
-                for(int j=0; j < ig[i].sizeMemberID && i<MAX_SIZE_IG; j++)
-                {
-                    if(ig[i].memberID[j] == m_in.m1_i1 && (ig[i].pubOrSub[j] == 2 || ig[i].pubOrSub[j] == 3))
-                    {
-                        if(ig[i].cursorPos[j] >= ig[i].startMessageList && ig[i].cursorPos[j] <= ig[i].endMessageList && ig[i].cursorPos[j] != -1)
-                        {
-                            m_in.m1_i3 = ig[i].messageList[ig[i].cursorPos[j]];
-                            ig[i].cursorPos[j] = (ig[i].cursorPos[j]+1)%5;
-                            if(ig[i].cursorPos[j] == ig[i].endMessageList)
-                            {
-                                ig[i].cursorPos[j] = -1;
-                            }
-                            
-                            //find lowest cursorPos then set end to the next lowest 
-                            int checkMin = 0;
-                            for(int k=0; k < ig[i].sizeMemberID && k<MAX_SIZE_IG; k++)
-                            {
-                                if(ig[i].cursorPos[k] == ig[i].startMessageList)
-                                {
-                                    checkMin = 1;
-                                }
-                            }
-                            if(checkMin == 0)
-                            {
-                                ig[i].startMessageList = (ig[i].startMessageList+1)%5;
-                                ig[i].sizeMessageList--;
-                            }
-                            return m_in.m1_i3;
-                        }
-                        else
-                        {
-                            return -1;
-                        }
-                    }   
-                }
-            }
-        }
-    }
+    int requesting_pid = m_in.m1_i1;
+	int intrest_group_id = m_in.m1_i2;
+	
+	struct intrestGroup *targetIntrestGroup = findIGByID(intrest_group_id);
+	
+	if (targetIntrestGroup == NULL) {
+		return 0;
+	}
+	
+	struct message *picked
+	
+	struct subscriber *thisSubscriber = processInSubscribers(requesting_pid, targetIntrestGroup);
+	
+	if (thisSubscriber != NULL) {
+		if (targetIntrestGroup.num_messages > 0) {
+			// Record that this PID has picked up the message
+			struct message_list *this_message_list = thisSubscriber.read_messages;
+			if (this_message_list == NULL) {
+				this_message_list.message =
+			}
+		}
+	}
+	
     return -1;
 }
+
+/*===========================================================================*
+ *				Project 2 Modification - End			     *
+ *===========================================================================*/
