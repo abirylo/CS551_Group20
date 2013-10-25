@@ -20,12 +20,15 @@
 #include <minix/com.h>
 #include <minix/config.h>
 #include <minix/sysinfo.h>
+#include <minix/syslib.h>
+#include <minix/sysutil.h>
 #include <minix/type.h>
 #include <minix/vm.h>
 #include <string.h>
 #include <machine/archtypes.h>
 #include <lib.h>
 #include <assert.h>
+#include <stdlib.h>
 #include "mproc.h"
 #include "param.h"
 #include "kernel/proc.h"
@@ -504,7 +507,7 @@ struct interestGroup
     int memberID[MAX_SIZE_IG];
     int cursorPos[MAX_SIZE_IG];
     int pubOrSub[MAX_SIZE_IG]; //1 for pub 2 for Sub
-    int messageList[5];
+    char *messageList[5];
     int sizeMemberID;
     int sizeMessageList;
     int startMessageList;
@@ -621,6 +624,7 @@ int do_IGSubscriber()
  *===========================================================================*/
 int do_IGPublish() 
 {
+    printf("Publishing!!, talking to you from the server proc!, hello %i from %i",getpid(),SELF);
     if( do_IGLookup() == 1 )
     {
         //find the IG
@@ -635,7 +639,11 @@ int do_IGPublish()
                     {
                         if(ig[i].sizeMessageList < 5)
                         {
-                            ig[i].messageList[ig[i].endMessageList] = m_in.m1_i3;
+                            char string[1025];
+                            ig[i].messageList[ig[i].endMessageList] = malloc(1024);                            
+                            int r=sys_datacopy(ig[i].id,(vir_bytes)m_in.m1_p1,SELF,(vir_bytes)string,1024);
+                            printf("Returned:%i \n String is:%s\n",r,string);
+                            strcpy(ig[i].messageList[ig[i].endMessageList],m_in.m1_p1);
                             ig[i].sizeMessageList++;
                             ig[i].endMessageList = (ig[i].endMessageList+1) % 5;
                             
@@ -647,7 +655,7 @@ int do_IGPublish()
                                     ig[i].cursorPos[k] = ig[i].startMessageList;
                                 }
                             }
-                            return 1;
+                            return r;
                         }
                     }
                 }
@@ -674,9 +682,16 @@ int do_IGRetrive()
                 {
                     if(ig[i].memberID[j] == m_in.m1_i1)
                     {
-                        if(ig[i].cursorPos[j] >= ig[i].startMessageList && ig[i].cursorPos[j] <= ig[i].endMessageList && ig[i].cursorPos[j] != -1)
+                        if(ig[i].cursorPos[j] >= ig[i].startMessageList && ig[i].cursorPos[j] <= ig[i].endMessageList && ig[i].cursorPos[j] != -1 )
                         {
-                            m_in.m1_i3 = ig[i].messageList[ig[i].cursorPos[j]];
+                            if(m_in.m1_p1 == NULL){
+                                return -200;
+                            }
+                            //int r=sys_datacopy(ig[i].id,(long)m_in.m1_p1,PM_PROC_NR,(long)&string,1024);                            
+                            //strcpy(m_in.m1_p1,ig[i].messageList[ig[i].cursorPos[j]]);
+                            char string[1025];
+                            strcpy(string,ig[i].messageList[ig[i].cursorPos[j]]);
+                            int r=sys_datacopy(SELF,(vir_bytes)string,ig[i].id,(vir_bytes)m_in.m1_p1,1024);
                             ig[i].cursorPos[j] = (ig[i].cursorPos[j]+1)%5;
                             if(ig[i].cursorPos[j] == ig[i].endMessageList)
                             {
@@ -697,16 +712,25 @@ int do_IGRetrive()
                                 ig[i].startMessageList = (ig[i].startMessageList+1)%5;
                                 ig[i].sizeMessageList--;
                             }
-                            return m_in.m1_i3;
+                            return r;
+                        }
+                        else if(ig[i].cursorPos[j] == -1){
+                            return -2;
+                        }
+                        else if(ig[i].cursorPos[j] < ig[i].startMessageList){
+                            return -3;
+                        }
+                        else if(ig[i].cursorPos[j] > ig[i].endMessageList){
+                            return -4;
                         }
                         else
                         {
-                            return -1;
+                            return -99;
                         }
                     }   
                 }
             }
         }
     }
-    return -1;
+    return -254;
 }

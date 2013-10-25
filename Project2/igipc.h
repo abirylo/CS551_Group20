@@ -37,21 +37,21 @@ int IGSubscriber (int id, int groupName)
     return( _syscall(PM_PROC_NR, IGSUBSCRIBER, &m) );
 }
 
-int IGPublish (int id, int groupName, int messageSend)
+int IGPublish (int id, int groupName, char *messageSend)
 {
     message m;
     m.m1_i1 = id;
     m.m1_i2 = groupName;
-    m.m1_i3 = messageSend;
+    m.m1_p1 = messageSend;
     return( _syscall(PM_PROC_NR, IGPUBLISH, &m) );
 }
 
-int IGRetrive (int id, int groupName, int *messageRecive)
+int IGRetrive (int id, int groupName, char *messageRecive)
 {
     message m;
     m.m1_i1 = id;
     m.m1_i2 = groupName;
+    m.m1_p1 = messageRecive; 
     int r = _syscall(PM_PROC_NR, IGRETRIVE, &m);
-    *messageRecive = m.m1_i2;
     return r;
 }
