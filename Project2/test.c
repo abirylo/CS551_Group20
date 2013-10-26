@@ -1,39 +1,32 @@
 #include <igipc.h>
 
-int main(void)
+int main()
 {
-    int groupName = 88;
-    int id = 123;
-    int dataSend = 555;
-    int dataRecv = 0;
-    
-    IGInit();
-    
-    if(IGLookup(groupName) == 0)
-        printf("IGLookup could not find group created\n");
-    
-    if(IGCreate(groupName))
-        printf("IGCreate created group\n");
-     
-    if(IGLookup(groupName))
-        printf("IGLookup fround group created\n");
-    
-    if(IGPublisher(id,groupName))
-        printf("Registered as Publisher\n");
-        
-    if(IGSubscriber(id,groupName))
-        printf("Registered as Subscriber\n");
-    
-    if(IGPublish(id, groupName,dataSend))
-        printf("Published data\n");
-    
-    int r = IGRetrive(id, groupName, &dataRecv);
-    if(r > 0)
-    {   
-        printf("Data Found %i\n",r);
-        if(r == dataSend)
-            printf("Data Recieved\n");
-    }
+	int group1 = IGCreate("group_1");
+	
+	printf("Registered group %d\n", group1);
+	
+	IGSubscriber(100, group1);
+	IGSubscriber(200, group1);
+	
+	IGPublish(100, group1, "Test message 1");
+	IGPublish(100, group1, "Test message 2");
+	IGPublish(100, group1, "Test message 3");
+	
+	
+	
+	IGRetrive(100, group1);
+
+	IGRetrive(100, group1);
+	
+	
+	IGRetrive(100, group1);
+	
+	IGRetrive(200, group1);
+	
+	
+	IGRetrive(100, group1);
+	
     
     return 0;
 }
