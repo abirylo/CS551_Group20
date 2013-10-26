@@ -635,19 +635,6 @@ int do_IGCreate()
 {
 	printf("\n-----IGCreate called.-----\n");
 	
-	FILE *f = fopen("file.txt", "w");
-	if (f == NULL)
-	{
-		printf("Error opening file!\n");
-		exit(1);
-	}
-	
-	/* print some text */
-	const char *text = "Write this to the file";
-	fprintf(f, "Some text: %s\n", text);
-	
-	fclose(f);
-	
 	char newGroupName[MAX_GROUP_NAME_LENGTH];
 	
 	// Check to make sure there's still space.
