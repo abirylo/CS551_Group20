@@ -531,7 +531,7 @@ struct publisher {
 
 struct interestGroup {
     int id;
-	char *group_name;
+	char group_name[MAX_GROUP_NAME_LENGTH];
 	
 	int num_subscribers;
 	int num_publishers;
@@ -543,48 +543,31 @@ struct interestGroup {
 };
 
 // TODO: Rename this variable
-static struct interestGroup ig[MAX_SIZE_IG];
+static struct interestGroup ig[MAX_SIZE_IG] = {0};
 static int numIntrestGroups = 0;
 static int nextIntrestGroupID = 0;
 static int nextMessageID = 0;
 
-int cleanupIntrestGroupArray() {
-	// This method gets called whenever a hole in the array is created as to always ensure that it's as tight as possible.
-	int i;
-	
-	for (i = 0; i < numIntrestGroups; i++) {
-		struct intrestGroup *thisIntrestGroup = ig[i];
-		
-		if (thisIntrestGroup == NULL) {
-			if (i + 1 < numIntrestGroups) {
-				// Move the IG in the next spot back one.
-				ig[i] = ig[i+1];
-				ig[i+1] = NULL;
-			}
-		}
-	}
-}
-
-struct intrestGroup *findIGByID(int target_id) {
+struct interestGroup *findIGByID(int target_id) {
 	int i;
 	for (i = 0; i < numIntrestGroups; i++) {
-		struct intrestGroup *thisIntrestGroup = ig[i];
+		struct interestGroup *thisInterestGroup = &ig[i];
 		
-		if (thisIntrestGroup.id == target_id) {
-			return thisIntrestGroup;
+		if (thisInterestGroup->id == target_id) {
+			return thisInterestGroup;
 		}
 	}
 	
 	return NULL;
 }
 
-struct publisher *processInPublishers(int target_pid, struct intrestGroup) {
+struct publisher *processInPublishers(int target_pid, struct interestGroup *theInterestGroup) {
 	int i;
 	
 	for (i = 0; i < MAX_SIZE_IG; i++) {
-		struct publisher *thisPublisher = interestGroup.publishers[i];
+		struct publisher *thisPublisher = &theInterestGroup->publishers[i];
 		
-		if (thisPublisher.pid == target_pid) {
+		if (thisPublisher->pid == target_pid) {
 			return thisPublisher;
 		}
 	}
@@ -592,13 +575,13 @@ struct publisher *processInPublishers(int target_pid, struct intrestGroup) {
 	return NULL;
 }
 
-struct subscriber *processInSubscribers(int target_pid, struct intrestGroup) {
+struct subscriber *processInSubscribers(int target_pid, struct interestGroup *theIntrestGroup) {
 	int i;
 	
 	for (i = 0; i < MAX_SIZE_IG; i++) {
-		struct subscriber *thisSubscriber = interestGroup.subscribers[i];
+		struct subscriber *thisSubscriber = &theIntrestGroup->subscribers[i];
 		
-		if (thisSubscriber.pid == target_pid) {
+		if (thisSubscriber->pid == target_pid) {
 			return thisSubscriber;
 		}
 	}
@@ -609,16 +592,16 @@ struct subscriber *processInSubscribers(int target_pid, struct intrestGroup) {
 /*===========================================================================*
  *				do_IGLookup				     *
  *===========================================================================*/
-struct intrestGroup *do_IGLookup()
+struct interestGroup *do_IGLookup()
 {
 	printf("\n-----IGLookup called.-----\n");
-    return ig;
+    return &ig[0];
 }
 
 /*===========================================================================*
  *				do_IGCreate				     *
  *===========================================================================*/
-int do_IGCreate() 
+int do_IGCreate()
 {
 	printf("\n-----IGCreate called.-----\n");
 	
@@ -627,45 +610,45 @@ int do_IGCreate()
 		return -1;
 	}
 	
-	struct intrestGroup thisIntrestGroup = ig[numIntrestGroups];
+	struct interestGroup *thisInterestGroup = &ig[numIntrestGroups];
 	
 	// Assign the next ID and increment.
-	thisIntrestGroup.id = nextIntrestGroupID;
+	thisInterestGroup->id = nextIntrestGroupID;
 	nextIntrestGroupID++;
 	
 	// Copy across the name of the group to a local variable.
 	char newGroupName[MAX_GROUP_NAME_LENGTH];
-	sys_datacopy(m_in.m_source, m_in.m1_p1, PM_PROC_NR, newGroupName, MAX_GROUP_NAME_LENGTH);
-	thisIntrestGroup.group_name = newGroupName;
+	sys_datacopy(m_in.m_source, (vir_bytes) m_in.m1_p1, PM_PROC_NR, (vir_bytes) newGroupName, MAX_GROUP_NAME_LENGTH);
+	memcpy(thisInterestGroup->group_name, newGroupName, sizeof(newGroupName));
 	
-	thisIntrestGroup.num_messages = 0;
-
-    return 0; 
+	thisInterestGroup->num_messages = 0;
+	
+    return 0;
     
 }
 
 /*===========================================================================*
  *				do_IGPublisher				     *
  *===========================================================================*/
-int do_IGPublisher() 
+int do_IGPublisher()
 {
 	printf("\n-----IGPublisher called.-----\n");
 	
 	int process_id = m_in.m1_i1;
-	int intrest_group_id = m_in.m1_i2;
+	int interest_group_id = m_in.m1_i2;
 	
-	struct intrestGroup *targetIntrestGroup = findIGByID(intrest_group_id);
+	struct interestGroup *targetInterestGroup = findIGByID(interest_group_id);
 	
-	if (targetIntrestGroup == NULL) {
+	if (targetInterestGroup == NULL) {
 		return 0;
 	}
 	
-	if (processInPublishers(process_id, targetIntrestGroup) == NULL) {
+	if (processInPublishers(process_id, targetInterestGroup) == NULL) {
 		struct publisher *new_publisher = (struct publisher *) malloc(sizeof(struct publisher *));
-		new_publisher.pid = process_id;
+		new_publisher->pid = process_id;
 		
-		targetIntrestGroup.publishers[targetIntrestGroup.num_publishers] = new_publisher;
-		targetIntrestGroup.num_publishers++;
+		targetInterestGroup->publishers[targetInterestGroup->num_publishers] = *new_publisher;
+		targetInterestGroup->num_publishers++;
 		
 		return 1;
 	}
@@ -676,70 +659,70 @@ int do_IGPublisher()
 /*===========================================================================*
  *				do_IGSubscriber				     *
  *===========================================================================*/
-int do_IGSubscriber() 
+int do_IGSubscriber()
 {
 	printf("\n-----IGSubscriber called.-----\n");
 	
 	int process_id = m_in.m1_i1;
-	int intrest_group_id = m_in.m1_i2;
+	int interest_group_id = m_in.m1_i2;
 	
-	struct intrestGroup *targetIntrestGroup = findIGByID(intrest_group_id);
+	struct interestGroup *targetInterestGroup = findIGByID(interest_group_id);
 	
-	if (targetIntrestGroup == NULL) {
+	if (targetInterestGroup == NULL) {
 		return 0;
 	}
 	
-	if (processInSubscribers(process_id, targetIntrestGroup) == NULL) {
+	if (processInSubscribers(process_id, targetInterestGroup) == NULL) {
 		struct subscriber *new_subscriber = (struct subscriber *) malloc(sizeof(struct subscriber *));
-		new_subscriber.pid = process_id;
-		new_subscriber.read_messages = NULL;
+		new_subscriber->pid = process_id;
+		memset(&new_subscriber->read_messages, 0, sizeof(struct message_list));
 		
-		targetIntrestGroup.subscribers[targetIntrestGroup.num_subscribers] = new_subscriber;
-		targetIntrestGroup.num_subscribers++;
+		targetInterestGroup->subscribers[targetInterestGroup->num_subscribers] = *new_subscriber;
+		targetInterestGroup->num_subscribers++;
 		
 		return 1;
 	}
-
+	
     return 0;
 }
 
 /*===========================================================================*
  *				do_IGPublish				     *
  *===========================================================================*/
-int do_IGPublish() 
+int do_IGPublish()
 {
 	printf("\n-----IGPublish called.-----\n");
 	
-	int sending_pid = m_in.m1_i1
-	int intrest_group_id = m_in.m1_i2;
-	char message[MAX_MESSAGE_SIZE];
+	int sending_pid = m_in.m1_i1;
+	int interest_group_id = m_in.m1_i2;
+	char *message = NULL;
 	
-	sys_datacopy(m_in.m_source, m_in.m1_p1, PM_PROC_NR, message, MAX_MESSAGE_SIZE);
+	sys_datacopy(m_in.m_source, (vir_bytes) m_in.m1_p1, PM_PROC_NR, (vir_bytes) message, MAX_MESSAGE_SIZE);
 	
-	struct intrestGroup *targetIntrestGroup = findIGByID(intrest_group_id);
+	struct interestGroup *targetIntrestGroup = findIGByID(interest_group_id);
 	
 	if (targetIntrestGroup == NULL) {
 		return 0;
 	}
 	
 	if (processInPublishers(sending_pid, targetIntrestGroup) != NULL) {
-		if (targetIntrestGroup.num_messages >= MAX_GROUP_MESSAGES) {
+		if (targetIntrestGroup->num_messages >= MAX_GROUP_MESSAGES) {
 			return 0;
 		}
 		
 		struct message *this_message = (struct message *) malloc(sizeof(struct message));
-		this_message.message = message;
-		this_message.sending_pid = sending_pid;
-		this_message.message_id = nextMessageID;
+		memcpy(this_message->message, message, MAX_MESSAGE_SIZE);
+		this_message->sending_pid = sending_pid;
+		this_message->message_id = nextMessageID;
 		
 		nextMessageID++;
 		
-		targetIntrestGroup.messages[targetIntrestGroup.num_messages] = this_message;
-		targetIntrestGroup.num_messages++;
+		targetIntrestGroup->messages[targetIntrestGroup->num_messages] = *this_message;
+		targetIntrestGroup->num_messages++;
 		
 		return 1;
 	}
-
+	
     return 0;
 }
 
@@ -748,33 +731,125 @@ int do_IGPublish()
  *===========================================================================*/
 char *do_IGRetrive()
 {
-    int requesting_pid = m_in.m1_i1;
-	int intrest_group_id = m_in.m1_i2;
+	int requesting_pid = m_in.m1_i1;
+	int interest_group_id = m_in.m1_i2;
 	
-	struct intrestGroup *targetIntrestGroup = findIGByID(intrest_group_id);
+	struct interestGroup *targetInterestGroup = findIGByID(interest_group_id);
 	
-	if (targetIntrestGroup == NULL) {
+	if (targetInterestGroup == NULL) {
 		return 0;
 	}
 	
-	struct subscriber *thisSubscriber = processInSubscribers(requesting_pid, targetIntrestGroup);
+	struct subscriber *thisSubscriber = processInSubscribers(requesting_pid, targetInterestGroup);
 	
 	if (thisSubscriber != NULL) {
-		if (targetIntrestGroup.num_messages > 0) {
-			// Starting from the end of the array, work backwards looking for a mesage that this PID hasn't yet picked up.
+		if (targetInterestGroup->num_messages > 0) {
+			// Start from the front of the messages array and look for a message this PID hasn't yet picked up.
+			int target_message_index = 0;
+			struct message *target_message = (struct message *) malloc(sizeof(struct message));
+			struct message_list *this_message_list = NULL;
+			int found;
 			
-			
-			// Check to make sure first that
-			struct message_list *this_message_list = thisSubscriber.read_messages;
-			if (this_message_list == NULL) {
-				this_message_list.message = target_message;
+			while (target_message_index < MAX_GROUP_MESSAGES) {
+				found = 0;
+				//target_message = &targetInterestGroup->messages[target_message_index];
+				memcpy(target_message, &targetInterestGroup->messages[target_message_index], sizeof(struct message));
+				
+				// Look at all the read messages to see if it's been received already.
+				this_message_list = &thisSubscriber->read_messages;
+				
+				struct message *potential_match = &this_message_list->message;
+				
+				while (potential_match->message_id != 0) {
+					if (potential_match->message_id == target_message->message_id) {
+						found = 1;
+						break;
+					}
+					
+					this_message_list = this_message_list->next_message;
+					potential_match = &this_message_list->message;
+					
+					if (potential_match == NULL) {
+						break;
+					}
+				}
+				
+				if (!found) {
+					break;
+				}
+				
+				target_message_index++;
 			}
 			
-			// Now check to see if every subscriber has picked up this message and it can be deleted.
+			if (!found) {
+				// Message hasn't been received by this subscriber yet, return the first message and record that.
+				this_message_list = &thisSubscriber->read_messages;
+				
+				if (this_message_list->message.message_id == 0) {
+					// No first message
+					memcpy(&this_message_list->message, target_message, sizeof(struct message));
+					//this_message_list->message = *target_message;
+					this_message_list->next_message = NULL;
+				}
+				else {
+					while (this_message_list->next_message != NULL) {
+						this_message_list = this_message_list->next_message;
+					}
+					
+					// this_message_list now points at the element right before a null next, so put the message in the next spot.
+					struct message_list *next_message_list = (struct message_list *) malloc(sizeof(struct message_list));
+					next_message_list->message = *target_message;
+					next_message_list->next_message = NULL;
+					
+					// Set then next pointer.
+					this_message_list->next_message = next_message_list;
+				}
+				
+				// Check to see if all others have received this message, if so, then remove it.
+				int s;
+				int num_received = 0;
+				for (s = 0; s < targetInterestGroup->num_subscribers; s++) {
+					found = 0;
+					thisSubscriber = &targetInterestGroup->subscribers[s];
+					
+					this_message_list = &thisSubscriber->read_messages;
+					
+					struct message *potential_match = &this_message_list->message;
+					
+					while (potential_match->message_id != 0) {
+						if (potential_match->message_id == target_message->message_id) {
+							found = 1;
+							break;
+						}
+						
+						this_message_list = this_message_list->next_message;
+						potential_match = &this_message_list->message;
+						
+						if (potential_match == NULL) {
+							break;
+						}
+					}
+					
+					if (found) {
+						num_received++;
+					}
+				}
+				
+				if (num_received == targetInterestGroup->num_subscribers) {
+					// Everyone received this message, delete it.
+					memset(&targetInterestGroup->messages[target_message_index], 0, sizeof(struct message));
+					// Cleanup
+					cleanupMessagesArray(targetInterestGroup->messages);
+				}
+			}
+			
+			// Return the message.
+			return target_message->message;
 		}
 	}
 	
-    return -1;
+	// No messages available/that haven't been checked.
+    return NULL;
 }
 
 /*===========================================================================*
