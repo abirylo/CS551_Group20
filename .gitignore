@@ -215,5 +215,6 @@ pip-log.txt
 .mr.developer.cfg
 Project1/shell
 Project1/shell.o
-CS551_Group20_Project1_Report.aux
 test
+*.aux
+*.synctex.gz
