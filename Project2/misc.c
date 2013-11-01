@@ -507,7 +507,7 @@ char *brk_addr;
  *===========================================================================*/
 
 #define MAX_GROUP_MESSAGES		5
-#define MAX_SIZE_IG				100
+#define MAX_SIZE_IG				20
 #define MAX_MESSAGE_SIZE		1024
 #define MAX_GROUP_NAME_LENGTH	255
 
@@ -547,8 +547,8 @@ struct interestGroup {
 // TODO: Rename this variable
 static struct interestGroup ig[MAX_SIZE_IG];
 static int numIntrestGroups = 0;
-static int nextIntrestGroupID = 0;
-static int nextMessageID = 0;
+static int nextIntrestGroupID = 1;
+static int nextMessageID = 1;
 
 int cleanupMessagesArray(struct message *array) {
 	// This method gets called whenever a hole in the array is created as to always ensure that it's as tight as possible.
@@ -612,19 +612,30 @@ struct subscriber *processInSubscribers(int target_pid, struct interestGroup *th
 }
 
 /*===========================================================================*
+ *				do_IGInit				     *
+ *===========================================================================*/
+int do_IGInit()
+{
+	printf("\n-----IGInit called.-----\n");
+	
+	memset(&ig, 0, sizeof(struct interestGroup) * MAX_SIZE_IG);
+	numIntrestGroups = 0;
+	nextIntrestGroupID = 1;
+	nextMessageID = 1;
+	
+	return 0;
+}
+
+/*===========================================================================*
  *				do_IGLookup				     *
  *===========================================================================*/
 int do_IGLookup()
 {
 	printf("\n-----IGLookup called.-----\n");
 	
-	puts("Interest groups available:");
-    
-	int i;
-	for (i = 0; i < numIntrestGroups; i++) {
-		printf("\t%d: %s\n", ig[i].id, ig[i].group_name);
-	}
-	
+	vir_bytes message_buf = (vir_bytes) m_in.m1_p1;
+	sys_datacopy(PM_PROC_NR, (vir_bytes) ig, m_in.m_source, message_buf, MAX_SIZE_IG * sizeof(struct interestGroup));
+
 	return 0;
 }
 
@@ -638,11 +649,13 @@ int do_IGCreate()
 	char newGroupName[MAX_GROUP_NAME_LENGTH];
 	
 	// Check to make sure there's still space.
-	if (numIntrestGroups >= MAX_SIZE_IG) {
-		return -1001;
+	if (numIntrestGroups == MAX_SIZE_IG) {
+		printf("Unable to add new interest group (%d), at maximum capacity (%d)!\n", numIntrestGroups, MAX_SIZE_IG);
+		return -1;
 	}
 	
 	struct interestGroup *thisInterestGroup = &ig[numIntrestGroups];
+	numIntrestGroups++;
 	
 	// Assign the next ID and increment.
 	thisInterestGroup->id = nextIntrestGroupID;
@@ -654,8 +667,9 @@ int do_IGCreate()
 	
 	thisInterestGroup->num_messages = 0;
 	
+	printf("Created new interest group:\n\tID: %d\n\tName: %s\n", thisInterestGroup->id, thisInterestGroup->group_name);
+	
     return thisInterestGroup->id;
-    
 }
 
 /*===========================================================================*
@@ -671,7 +685,8 @@ int do_IGPublisher()
 	struct interestGroup *targetInterestGroup = findIGByID(interest_group_id);
 	
 	if (targetInterestGroup == NULL) {
-		return 0;
+		printf("Failed to find interest group with id: %d\n", interest_group_id);
+		return -1;
 	}
 	
 	if (processInPublishers(process_id, targetInterestGroup) == NULL) {
@@ -681,10 +696,14 @@ int do_IGPublisher()
 		targetInterestGroup->publishers[targetInterestGroup->num_publishers] = *new_publisher;
 		targetInterestGroup->num_publishers++;
 		
-		return 1;
+		printf("Added publisher:\n\tPID: %d\n\tInterest group ID: %d\n\tNumber of current publishers: %d\n", process_id, targetInterestGroup->id, targetInterestGroup->num_publishers);
+		
+		return 0;
 	}
-	
-    return 0;
+	else {
+		printf("PID (%d) already a publisher in interest group (%d)!\n", process_id, targetInterestGroup->id);
+		return -2;
+	}
 }
 
 /*===========================================================================*
@@ -700,7 +719,8 @@ int do_IGSubscriber()
 	struct interestGroup *targetInterestGroup = findIGByID(interest_group_id);
 	
 	if (targetInterestGroup == NULL) {
-		return 0;
+		printf("Failed to find interest group with id: %d\n", interest_group_id);
+		return -1;
 	}
 	
 	if (processInSubscribers(process_id, targetInterestGroup) == NULL) {
@@ -711,10 +731,14 @@ int do_IGSubscriber()
 		targetInterestGroup->subscribers[targetInterestGroup->num_subscribers] = *new_subscriber;
 		targetInterestGroup->num_subscribers++;
 		
-		return 1;
+		printf("Added subscriber:\n\tPID: %d\n\tInterest group ID: %d\n\tNumber of current subscribers: %d\n", process_id, targetInterestGroup->id, targetInterestGroup->num_subscribers);
+		
+		return 0;
 	}
-	
-    return 0;
+	else {
+		printf("PID (%d) already a subscriber in interest group (%d)!\n", process_id, targetInterestGroup->id);
+		return -2;
+	}
 }
 
 /*===========================================================================*
@@ -726,19 +750,21 @@ int do_IGPublish()
 	
 	int sending_pid = m_in.m1_i1;
 	int interest_group_id = m_in.m1_i2;
-	char *message[MAX_MESSAGE_SIZE];
+	char message[MAX_MESSAGE_SIZE];
 	
 	sys_datacopy(m_in.m_source, (vir_bytes) m_in.m1_p1, PM_PROC_NR, (vir_bytes) message, MAX_MESSAGE_SIZE);
 	
 	struct interestGroup *targetIntrestGroup = findIGByID(interest_group_id);
 	
 	if (targetIntrestGroup == NULL) {
-		return 0;
+		printf("Failed to find interest group with id: %d\n", interest_group_id);
+		return -1;
 	}
 	
 	if (processInPublishers(sending_pid, targetIntrestGroup) != NULL) {
 		if (targetIntrestGroup->num_messages >= MAX_GROUP_MESSAGES) {
-			return 0;
+			printf("Failed to publish message!  Group at max number (%d) of messages!\n", MAX_GROUP_MESSAGES);
+			return -2;
 		}
 		
 		struct message *this_message = (struct message *) malloc(sizeof(struct message));
@@ -751,10 +777,14 @@ int do_IGPublish()
 		targetIntrestGroup->messages[targetIntrestGroup->num_messages] = *this_message;
 		targetIntrestGroup->num_messages++;
 		
-		return 1;
+		printf("Message published:\n\tSending PID: %d\n\tInterest group ID: %d\n\tMessage ID: %d\n\tMessage: %s\n", sending_pid, targetIntrestGroup->id, this_message->message_id, this_message->message);
+		
+		return 0;
 	}
-	
-    return 0;
+	else {
+		printf("Sending PID (%d) not in target interest group's (%d) publisher list!\n", sending_pid, targetIntrestGroup->id);
+		return -3;
+	}
 }
 
 /*===========================================================================*
@@ -762,13 +792,17 @@ int do_IGPublish()
  *===========================================================================*/
 int do_IGRetrive()
 {
+	printf("\n-----IGRetrive called.-----\n");
+	
 	int requesting_pid = m_in.m1_i1;
 	int interest_group_id = m_in.m1_i2;
+	vir_bytes message_buf = (vir_bytes) m_in.m1_p1;
 	
 	struct interestGroup *targetInterestGroup = findIGByID(interest_group_id);
 	
 	if (targetInterestGroup == NULL) {
-		return 0;
+		printf("Failed to find interest group with id: %d\n", interest_group_id);
+		return -1;
 	}
 	
 	struct subscriber *thisSubscriber = processInSubscribers(requesting_pid, targetInterestGroup);
@@ -781,10 +815,10 @@ int do_IGRetrive()
 			struct message_list *this_message_list = NULL;
 			int found;
 			
-			while (target_message_index < MAX_GROUP_MESSAGES) {
+			while (target_message_index < targetInterestGroup->num_messages) {
 				found = 0;
-				//target_message = &targetInterestGroup->messages[target_message_index];
-				memcpy(target_message, &targetInterestGroup->messages[target_message_index], sizeof(struct message));
+				target_message = &targetInterestGroup->messages[target_message_index];
+				//memcpy(target_message, &targetInterestGroup->messages[target_message_index], sizeof(struct message));
 				
 				// Look at all the read messages to see if it's been received already.
 				this_message_list = &thisSubscriber->read_messages;
@@ -818,8 +852,8 @@ int do_IGRetrive()
 				
 				if (this_message_list->message.message_id == 0) {
 					// No first message
-					memcpy(&this_message_list->message, target_message, sizeof(struct message));
 					//this_message_list->message = *target_message;
+					memcpy(&this_message_list->message, target_message, sizeof(struct message));
 					this_message_list->next_message = NULL;
 				}
 				else {
@@ -866,21 +900,37 @@ int do_IGRetrive()
 					}
 				}
 				
+				// Return the message before we destroy it, if we do.
+				//printf("Message: %s\n", target_message->message);
+				sys_datacopy(PM_PROC_NR, (vir_bytes) target_message->message, m_in.m_source, message_buf, MAX_MESSAGE_SIZE);
+				
 				if (num_received == targetInterestGroup->num_subscribers) {
+					//puts("Everyone has received, deleting now.");
 					// Everyone received this message, delete it.
 					memset(&targetInterestGroup->messages[target_message_index], 0, sizeof(struct message));
 					// Cleanup
 					cleanupMessagesArray(targetInterestGroup->messages);
+					targetInterestGroup->num_messages--;
 				}
+				
+				return 0;
+			}
+			else {
+				printf("All messages read for PID (%d) in interest group (%d).\n", requesting_pid, targetInterestGroup->id);
+				return -2;
 			}
 			
-			// Return the message.
-			printf("Message: %s", target_message->message);
+			
+		}
+		else {
+			printf("No messages currently in interest group.\n");
+			return -3;
 		}
 	}
-	
-	// No messages available/that haven't been checked.
-    return 0;
+	else {
+		printf("Requesting PID (%d) not in subscriber list of interst group (%d)!\n", requesting_pid, targetInterestGroup->id);
+		return -4;
+	}
 }
 
 /*===========================================================================*

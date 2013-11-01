@@ -68,7 +68,8 @@ int (*call_vec[])(void) = {
 	no_sys,		/* 54 = ioctl	*/
 	no_sys,		/* 55 = fcntl	*/
 	no_sys,		/* 57 = unused	*/
-	no_sys,		/* 58 = unused	*/
+	no_sys,		/* 56 = unused  */
+	do_IGInit,		/* 58 = unused	*/
 	do_exec,	/* 59 = execve	*/
 	no_sys,		/* 60 = umask	*/
 	no_sys,		/* 61 = chroot	*/
@@ -126,5 +127,4 @@ int (*call_vec[])(void) = {
 	do_get,		/* 113 = getsid	*/
 };
 /* This should not fail with "array size is negative": */
-//extern int dummy[sizeof(call_vec) == NCALLS * sizeof(call_vec[0]) ? 1 : -1];
-extern int dummy[1];
+extern int dummy[sizeof(call_vec) == NCALLS * sizeof(call_vec[0]) ? 1 : -1];

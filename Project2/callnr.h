@@ -112,7 +112,8 @@
 /* Extra methodes for Project 2 */
 /* of the methods are implemented in PM/misc.c */
 /* picked values not used */
-#define IGINIT          56
+
+#define IGINIT			58
 #define IGLOOKUP        69     
 #define IGCREATE        70
 #define IGPUBLISHER     79
