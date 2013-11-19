@@ -120,6 +120,7 @@
 #define IGSUBSCRIBER    108
 #define IGPUBLISH       109
 #define IGRETRIVE       110
+#define IGREMOVE		44
 
 #define TASK_REPLY	121	/* to VFS: reply code from drivers, not 
 				 * really a standalone call.

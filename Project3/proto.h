@@ -60,6 +60,7 @@ int do_getsetpriority(void);
 int do_IGInit(void);
 int do_IGLookup(void);
 int do_IGCreate(void);
+int do_IGRemove(void);
 int do_IGPublisher(void);
 int do_IGSubscriber(void);
 int do_IGPublish(void);
