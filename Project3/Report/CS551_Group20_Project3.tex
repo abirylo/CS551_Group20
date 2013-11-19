@@ -110,7 +110,13 @@ There are a number of test cases which test all aspects of the system:
 	\item testAlreadyRetrivedAllMessages - Creates an interest group and registers a subscriber and a publisher and publishes a message.  This message is subsequently read by the subscriber a first time then tries to read it a second time.  Because there is only one message, no message should be returned on the second attempt.  If none is, it returns success, false otherwise.
 	\item testOverfillMessages - Creates an interest group and a publisher.  The publisher then proceeds to publish 5 messages and then tries to publish one more.  Since the maximum is 5, the first 5 should succeed and the last should fail.  If this is the case, it returns success, false otherwise.
 	\item testMessageDelete - Creates an interest group, a publisher, and two subscribers.  The publisher pushes two messages to the interest group and the subscribers then read these messages.  After the messages are read, they are checked to be deleted from the interest group.  If so, the function returns success, false otherwise.
-	\item testMessageOrder - Creates an interest group, a publisher, and two subscribers.  The publisher pushes three messages to the interest group and the first subscriber checks all three.  The tests checks to make sure the messages received were in order and were not removed (as there is still another subscriber that has not checked these messages yet).  The second subscriber then checks all three messages and then the test function checks to make sure that all the messages were removed from the interest group.
+	\item testMessageOrder - Creates an interest group, a publisher, and two subscribers.  The publisher pushes three messages to the interest group and the first subscriber checks all three.  The tests checks to make sure the messages received were in order and were not removed (as there is still another subscriber that has not checked these messages yet). The second subscriber then checks all three messages and then the test function checks to make sure that all the messages were removed from the interest group.
+	\item testSubscribeToSecureGroupAllowed - Creates a secure group, a group leader and a process that can register as a subscriber to the secure group. The subscriber tries to register as a subscriber and is allowed to register.
+	\item testPublichToSecureGroupAllowed - Identical to testSubscribeToSecureGroupAllowed except for a publisher.
+	\item testSubscribeToSecureGroupNotAllowed - Creates a secure group. Then try to register a subscribe to the secure group when the process wasn't allowed to belong to the group. The subscribe should not be allowed to register with the group. 
+	\item testPublishToSecureGroupNotAllowed - Identical to testSubscribeToSecureGroupNotAllowed except for a publisher.
+
+
 \end{enumerate}
 
 \section{Running the Code}
