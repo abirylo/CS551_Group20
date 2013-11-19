@@ -45,14 +45,30 @@ This function initializes the framework by resetting all variables to that of th
 \subsection{int IGLookup()}
 This function copies the global storage array for all interest groups back to the calling process.  This is done using the \verb+sys_datacopy+ system call.  This function always returns 0.
 
-\subsection{int IGCreate()}
-This function creates a new interest group.  The identifier of the group is calculated using an auto incremented value.  The name of the group (string) is passed in through the \verb+sys_datacopy+ system call.  There is an upper limit to the number of interest groups we allow, so this function will return -1 if that limit has been reached and an interest group cannot be added, 0 otherwise.
+%\subsection{int IGCreate()}
+%This function creates a new interest group.  The identifier of the group is calculated using an auto incremented value.  The name of the group (string) is passed in through the \verb+sys_datacopy+ system call.  There is an upper limit to the number of interest groups we allow, so this function will return -1 if that limit has been reached and an interest group cannot be added, 0 otherwise.
 
 \subsection{int IGPublisher()}
-This function registers a process as a publisher within a given interest group.  It takes as argument the process ID of the requesting process and the ID of the interest group it wishes to join.  In the event it specifies an invalid interest group, the function returns -1.  If the process is already a publisher, then it returns -2.  Otherwise, it returns 0 and registers the process as a publisher.
+This function registers a process as a publisher within a given interest group. If the group is public then it will be registered. If the group is privet and the process is allowed to register it then it will be registered else it will not be. It takes as argument the process ID of the requesting process and the ID of the interest group it wishes to join.  In the event it specifies an invalid interest group, the function returns -1.  If the process is already a publisher, then it returns -2.  Otherwise, it returns 0 and registers the process as a publisher.
 
 \subsection{int IGSubscriber()}
-This function registers a process as a subscriber within a given interest group.  It takes as argument the process ID of the requesting process and the ID of the interest group it wishes to join.  In the event it specifies an invalid interest group, the function returns -1.  If the process is already a subscriber, then it returns -2.  Otherwise, it returns 0 and registers the process as a publisher.
+This function registers a process as a subscriber within a given interest group. If the group is public then it will be registered. If the group is privet and the process is allowed to register it then it will be registered else it will not be. It takes as argument the process ID of the requesting process and the ID of the interest group it wishes to join.  In the event it specifies an invalid interest group, the function returns -1.  If the process is already a subscriber, then it returns -2.  Otherwise, it returns 0 and registers the process as a publisher.
+
+\subsection{int IGAssignGroupLeader()}
+This function is only called by the super-user to assign who can be the owner of a group. If the interest group does not exist or the process to be assigned does not exist an error of -1 is returned. Otherwise, 0 is returned and the process is assigned as the group leader. 
+
+\subsection{int IGRemoveGroupLeader()}
+This function is only called by the super-user to assign who can be the owner of a group. Zero is returned and the process is removed. If the process doesn't belong to the group or the group does not belong -1 is returned and nothing is changed.  
+
+
+\subsection{int IGCreateSecureGroup()}
+This function is called by the group leader to create a secure group. Only allowed publisher and subscribers are allowed to register with this group. 
+
+\subsection{int IGCreatePublicGroup()}
+This function is called by the group leader to create a public group. Any publisher and subscribers are allowed to register with this group. 
+
+\subsection{int IGRemoveGroup()}
+This function is called by the group leader to remove a group that was created. The function return 0 is success and -1 if the group does not exist and nothing is changed.
 
 \subsection{int IGPublish()}
 This function publishes a message to a specified interest group.  It takes as argument the sending PID, the destination process id, and a message represented as a character array.  As always, this information is taken from the message passed in from the system call.  If the specified interest group is nonexistent, it returns -1.  If there are already too many messages waiting, it returns -2.  If the requesting process is not a publisher, it returns -3.  Otherwise, the message is published to the interest group and returns 0.
@@ -99,6 +115,6 @@ There are a number of test cases which test all aspects of the system:
 
 \section{Running the Code}
 
-This is made very easy by a Makefile.  The image contains everything that is necessary to run the project.  Simply change directories into the ``Project2" directory, make, reboot, and then run \verb+./test+ inside the Project2 folder.
+This is made very easy by a Makefile.  The image contains everything that is necessary to run the project.  Simply change directories into the ``Project3" directory, make, reboot, and then run \verb+./test+ inside the Project3 folder.
 
 \end{document}
