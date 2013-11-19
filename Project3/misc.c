@@ -570,6 +570,23 @@ int cleanupMessagesArray(struct message *array) {
 	return 1;
 }
 
+void cleanupIGArray() {
+	int i;
+	
+	for (i = 0; i < MAX_SIZE_IG; i++) {
+		struct interestGroup *thisIG = &ig[i];
+		struct interestGroup *nextIG = &ig[i+1];
+		
+		if (thisIG->id == 0) {
+			if (i + 1 < MAX_SIZE_IG && nextIG->id != 0) {
+				// Move this interest group back one slot.
+				memcpy(&ig[i], &ig[i+1], sizeof(struct interestGroup));
+				memset(&ig[i+1], 0, sizeof(struct interestGroup));
+			}
+		}
+	}
+}
+
 struct interestGroup *findIGByID(int target_id) {
 	int i;
 	for (i = 0; i < numIntrestGroups; i++) {
@@ -670,6 +687,37 @@ int do_IGCreate()
 	printf("Created new interest group:\n\tID: %d\n\tName: %s\n", thisInterestGroup->id, thisInterestGroup->group_name);
 	
     return thisInterestGroup->id;
+}
+
+/*===========================================================================*
+ *				do_IGRemove				     *
+ *===========================================================================*/
+int do_IGRemove()
+{
+	printf("\n-----IGRemove called.-----\n");
+	
+	int process_id = m_in.m1_i1;
+	int interest_group_id = m_in.m1_i2;
+	
+	struct interestGroup *targetInterestGroup = findIGByID(interest_group_id);
+	
+	if (targetInterestGroup == NULL) {
+		printf("Failed to find interest group with id: %d\n", interest_group_id);
+		return -1;
+	}
+	
+	printf("Removed interest group:\n\tID: %d\n\tName: %s\n", thisInterestGroup->id, thisInterestGroup->group_name);
+	
+	// Overwrite the interest group's memory location with 0's
+	memcpy(targetInterestGroup, 0, sizeof(struct interestGroup));
+
+	// Decrease the number of interest groups
+	numIntrestGroups--;
+	
+	// Cleanup the array
+	cleanupIGArray();
+	
+    return 0;
 }
 
 /*===========================================================================*
