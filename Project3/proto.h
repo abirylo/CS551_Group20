@@ -65,6 +65,9 @@ int do_IGPublisher(void);
 int do_IGSubscriber(void);
 int do_IGPublish(void);
 int do_IGRetrive(void);
+int do_AuthSuperUser(void);
+int do_AddGroupLeader(void);
+int do_RemoveGroupLeader(void);
 
 /* schedule.c */
 void sched_init(void);

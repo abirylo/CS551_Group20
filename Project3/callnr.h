@@ -109,18 +109,21 @@
 
 #define PM_GETSID	113	/* PM getsid() */
 
-/* Extra methodes for Project 2 */
+/* Extra methodes for Project 3 */
 /* of the methods are implemented in PM/misc.c */
 /* picked values not used */
 
-#define IGINIT			58
-#define IGLOOKUP        69     
-#define IGCREATE        70
-#define IGPUBLISHER     79
-#define IGSUBSCRIBER    108
-#define IGPUBLISH       109
-#define IGRETRIVE       110
-#define IGREMOVE		44
+#define IGINIT				58
+#define IGLOOKUP			69
+#define IGCREATE			70
+#define IGPUBLISHER			79
+#define IGSUBSCRIBER		108
+#define IGPUBLISH			109
+#define IGRETRIVE			110
+#define IGREMOVE			44
+#define AUTHSUPERUSER		35
+#define ADDGROUPLEADER		103
+#define	REMOVEGROUPLEADER	97
 
 #define TASK_REPLY	121	/* to VFS: reply code from drivers, not 
 				 * really a standalone call.

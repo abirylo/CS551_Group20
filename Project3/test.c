@@ -1,6 +1,5 @@
 #include <igipc.h>
 
-void printIGs();
 int testOverfillIG();
 int testAlreadyPublisher();
 int testNotPublisher();
@@ -11,6 +10,13 @@ int testSubscribeInvalidInterestGroup();
 int testRetriveNoMessages();
 int testAlreadyRetrivedAllMessages();
 int testOverfillMessages();
+
+int testAuthSuperUser();
+int testAddGroupLeader();
+int testRemoveGroupLeader();
+int testPublicGroup();
+int testPrivateGroup();
+int testRemoveGroup();
 
 void printIGs() {
 	struct interestGroup ig[MAX_SIZE_IG];
@@ -25,7 +31,29 @@ void printIGs() {
 		int i;
 		for (i = 0; i < MAX_SIZE_IG; i++) {
 			if (ig[i].id != 0 || i == 0) {
-				printf("\t%d: %s\n", ig[i].id, ig[i].group_name);
+				char *type;
+				if (ig[i].group_type == PUBLIC_GROUP) {
+					type = "Public";
+				}
+				else if (ig[i].group_type == SECURE_GROUP) {
+					type = "Secure";
+				}
+				else {
+					type = "Unknown";
+				}
+				
+				printf("\t%d - Name: %s, Type: %s, Leader: %d\n", ig[i].id, ig[i].group_name, type, ig[i].group_leader);
+				
+				if (ig[i].group_type == SECURE_GROUP) {
+					printf("\t\t%d Authorized PIDs:\n", ig[i].num_subscribers);
+					
+					int j;
+					for (j = 0; j < ig[i].num_subscribers; j++) {
+						if (ig[i].subscribers[j].pid != 0) {
+							printf("\t\t\t%d: %d\n", j + 1, ig[i].subscribers[j].pid);
+						}
+					}
+				}
 			}
 		}
 	}
@@ -34,12 +62,15 @@ void printIGs() {
 int testOverfillIG() {
 	IGInit();
 	
+	int super_user_pid = AuthSuperUser(10, SUPER_USER_PASSWORD);
+	AddGroupLeader(super_user_pid, 100);
+	
 	int i;
 	for (i = 0; i < MAX_SIZE_IG; i++) {
 		char thisGroupName[MAX_GROUP_NAME_LENGTH];
 		snprintf(thisGroupName, MAX_GROUP_NAME_LENGTH, "Group %d", i + 1);
 		
-		int thisGroup = IGCreate(thisGroupName);
+		int thisGroup = IGCreate(100, PUBLIC_GROUP, thisGroupName, NULL, 0);
 		
 		if (thisGroup < 0) {
 			printf("Overfill IG test failed!\n");
@@ -50,7 +81,7 @@ int testOverfillIG() {
 	printIGs();
 	
 	// This should fail.
-	int thisGroup = IGCreate("Invalid");
+	int thisGroup = IGCreate(100, PUBLIC_GROUP, "Invalid", NULL, 0);
 	
 	if (thisGroup > 0) {
 		printf("Overfill IG test failed!\n");
@@ -66,8 +97,11 @@ int testOverfillIG() {
 int testAlreadyPublisher() {
 	IGInit();
 	
+	int super_user_pid = AuthSuperUser(10, SUPER_USER_PASSWORD);
+	AddGroupLeader(super_user_pid, 100);
+	
 	int status;
-	int thisGroup = IGCreate("testgroup");
+	int thisGroup = IGCreate(100, PUBLIC_GROUP, "TestGroup", NULL, 0);
 	
 	status = IGPublisher(100, thisGroup);
 	
@@ -93,8 +127,11 @@ int testAlreadyPublisher() {
 int testNotPublisher() {
 	IGInit();
 	
+	int super_user_pid = AuthSuperUser(10, SUPER_USER_PASSWORD);
+	AddGroupLeader(super_user_pid, 100);
+	
 	int status;
-	int thisGroup = IGCreate("testgroup");
+	int thisGroup = IGCreate(100, PUBLIC_GROUP, "TestGroup", NULL, 0);
 	
 	status = IGPublish(100, thisGroup, "Test");
 	
@@ -130,8 +167,11 @@ int testPublisherInvalidInterestGroup() {
 int testAlreadySubscriber() {
 	IGInit();
 	
+	int super_user_pid = AuthSuperUser(10, SUPER_USER_PASSWORD);
+	AddGroupLeader(super_user_pid, 100);
+	
 	int status;
-	int thisGroup = IGCreate("testgroup");
+	int thisGroup = IGCreate(100, PUBLIC_GROUP, "TestGroup", NULL, 0);
 	
 	status = IGSubscriber(100, thisGroup);
 	
@@ -157,8 +197,11 @@ int testAlreadySubscriber() {
 int testNotSubscriber() {
 	IGInit();
 	
+	int super_user_pid = AuthSuperUser(10, SUPER_USER_PASSWORD);
+	AddGroupLeader(super_user_pid, 100);
+	
 	int status;
-	int thisGroup = IGCreate("testgroup");
+	int thisGroup = IGCreate(100, PUBLIC_GROUP, "TestGroup", NULL, 0);
 	
 	char message[MAX_MESSAGE_SIZE];
 	status = IGRetrive(100, thisGroup, message);
@@ -196,8 +239,11 @@ int testSubscribeInvalidInterestGroup() {
 int testRetriveNoMessages() {
 	IGInit();
 	
+	int super_user_pid = AuthSuperUser(10, SUPER_USER_PASSWORD);
+	AddGroupLeader(super_user_pid, 100);
+	
 	int status;
-	int thisGroup = IGCreate("testgroup");
+	int thisGroup = IGCreate(100, PUBLIC_GROUP, "TestGroup", NULL, 0);
 	
 	status = IGSubscriber(100, thisGroup);
 	
@@ -223,9 +269,12 @@ int testRetriveNoMessages() {
 int testAlreadyRetrivedAllMessages() {
 	IGInit();
 	
+	int super_user_pid = AuthSuperUser(10, SUPER_USER_PASSWORD);
+	AddGroupLeader(super_user_pid, 100);
+	
 	int status;
+	int thisGroup = IGCreate(100, PUBLIC_GROUP, "TestGroup", NULL, 0);
 	char message[MAX_MESSAGE_SIZE];
-	int thisGroup = IGCreate("testgroup");
 	
 	status = IGSubscriber(100, thisGroup);
 	
@@ -271,8 +320,11 @@ int testAlreadyRetrivedAllMessages() {
 int testOverfillMessages() {
 	IGInit();
 	
+	int super_user_pid = AuthSuperUser(10, SUPER_USER_PASSWORD);
+	AddGroupLeader(super_user_pid, 100);
+	
 	int status;
-	int thisGroup = IGCreate("testgroup");
+	int thisGroup = IGCreate(100, PUBLIC_GROUP, "TestGroup", NULL, 0);
 	
 	status = IGPublisher(100, thisGroup);
 	
@@ -280,7 +332,7 @@ int testOverfillMessages() {
 		puts("Overfill messages test failed!");
 		return -1;
 	}
-
+	
 	int i;
 	for (i = 0; i < MAX_GROUP_MESSAGES; i++) {
 		status = IGPublish(100, thisGroup, "Test");
@@ -305,11 +357,233 @@ int testOverfillMessages() {
 	return 0;
 }
 
-int (*test_pointers[10]) ();
+
+/* Project 3 Tests */
+
+int testAuthSuperUser() {
+	IGInit();
+	
+	// Test incorrect password
+	int success1 = AuthSuperUser(10, -1);
+	
+	if (success1 == 0) {
+		printf("Auth super user test failed!\n");
+		return -1;
+	}
+	
+	int success2 = AuthSuperUser(10, SUPER_USER_PASSWORD);
+	
+	if (success2 < 0) {
+		printf("Auth super user test failed!\n");
+		return -2;
+	}
+	else {
+		printf("Auth super user test passed.\n");
+		return 0;
+	}
+}
+
+int testAddGroupLeader() {
+	IGInit();
+	
+	// Test without being super user
+	int success1 = AddGroupLeader(10, 10);
+	
+	if (success1 == 0) {
+		puts("Add group leader test failed!");
+		return -1;
+	}
+	
+	// Now create a super user
+	int super_user_pid = AuthSuperUser(10, SUPER_USER_PASSWORD);
+	
+	// Now we should be able to authorize this group
+	int success2 = AddGroupLeader(10, 100);
+	
+	if (success2 != 0) {
+		puts("Add group leader test failed!");
+		return -2;
+	}
+	
+	puts("Add group leader test passed.");
+	return 0;
+}
+
+int testRemoveGroupLeader() {
+	IGInit();
+	
+	int super_user_pid = AuthSuperUser(10, SUPER_USER_PASSWORD);
+	
+	// Try to remove not as super user
+	int success1 = RemoveGroupLeader(5, 100);
+	
+	if (success1 == 0) {
+		printf("Remove group leader test failed with code %d!", success1);
+		return -1;
+	}
+	
+	// Try to remove as super user but not a valid pid
+	int success2 = RemoveGroupLeader(10, 100);
+	
+	if (success2 == 0) {
+		printf("Remove group leader test failed with code %d!", success2);
+		return -2;
+	}
+	
+	AddGroupLeader(10, 100);
+	
+	// Now try to remove valid group as valid super user
+	int success3 = RemoveGroupLeader(10, 100);
+	
+	if (success3 != 0) {
+		printf("Remove group leader test failed with code %d!", success3);
+		return -3;
+	}
+	
+	puts("Remove group leader test passed.");
+	return 0;
+}
+
+int testPublicGroup() {
+	IGInit();
+	int status;
+	char message[MAX_MESSAGE_SIZE];
+	
+	int super_user_pid = AuthSuperUser(10, SUPER_USER_PASSWORD);
+	AddGroupLeader(super_user_pid, 100);
+	
+	int thisGroup = IGCreate(100, PUBLIC_GROUP, "TestGroup", NULL, 0);
+	
+	if (thisGroup < 0) {
+		puts("Public group test failed!");
+		return -1;
+	}
+	
+	// Add valid subscriber
+	status = IGSubscriber(100, thisGroup);
+	
+	if (status != 0) {
+		puts("Public group test failed!");
+		return -2;
+	}
+	
+	// Add valid publisher
+	status = IGPublisher(100, thisGroup);
+
+	if (status != 0) {
+		puts("Public group test failed!");
+		return -3;
+	}
+	
+	// Valid publish
+	status = IGPublish(100, thisGroup, "Test message");
+	
+	if (status != 0) {
+		puts("Public group test failed!");
+		return -4;
+	}
+	
+	// Valid retrive
+	status = IGRetrive(100, thisGroup, message);
+	
+	if (status != 0) {
+		puts("Public group test failed!");
+		return -5;
+	}
+	
+	return 0;
+}
+
+int testPrivateGroup() {
+	IGInit();
+	int status;
+	char message[MAX_MESSAGE_SIZE];
+	
+	int super_user_pid = AuthSuperUser(10, SUPER_USER_PASSWORD);
+	AddGroupLeader(super_user_pid, 100);
+	
+	int allowed_pids[] = {100, 200};
+	int private_group1 = IGCreate(100, SECURE_GROUP, "Private group 1", allowed_pids, 2);
+	
+	// Try to publish from unauthorized PID
+	status = IGPublish(300, private_group1, "Test fail message");
+	
+	if (status > 0) {
+		puts("Private group test failed!");
+		return -1;
+	}
+	
+	// Publish from authorized PID
+	status = IGPublish(100, private_group1, "Test message");
+	
+	if (status != 0) {
+		puts("Private group test failed!");
+		return -2;
+	}
+	
+	// Retrieve from unauthorized PID
+	status = IGRetrive(300, private_group1, message);
+	
+	if (status > 0) {
+		puts("Private group test failed!");
+		return -3;
+	}
+	
+	// Retrieve from authorized PID
+	status = IGRetrive(100, private_group1, message);
+	
+	if (status != 0) {
+		puts("Private group test failed!");
+		return -4;
+	}
+	
+	return 0;
+}
+
+int testRemoveGroup() {
+	IGInit();
+	int status;
+	
+	int super_user_pid = AuthSuperUser(10, SUPER_USER_PASSWORD);
+	AddGroupLeader(super_user_pid, 100);
+	
+	int public_group = IGCreate(100, PUBLIC_GROUP, "Test Group", NULL, 0);
+	int allowed_pids[] = {100, 200};
+	int private_group = IGCreate(100, SECURE_GROUP, "Private group 1", allowed_pids, 2);
+	
+	// Unauthorized remove of public group
+	status = IGRemove(200, public_group);
+	
+	if (status == 0) {
+		printf("Remove group test failed with code %d!\n", status);
+		return -1;
+	}
+	
+	// Authorized super user remove
+	status = IGRemove(10, public_group);
+	
+	if (status != 0) {
+		printf("Remove group test failed with code %d!\n", status);
+		return -2;
+	}
+	
+	// Authorized removal of private group from group leader
+	status = IGRemove(100, private_group);
+	
+	if (status != 0) {
+		printf("Remove group test failed with code %d!\n", status);
+		return -3;
+	}
+	
+	return 0;
+}
+
+int (*test_pointers[16]) ();
 
 int main()
 {
 	/* Unit tests */
+	
 	test_pointers[0] = testOverfillIG;
 	test_pointers[1] = testAlreadyPublisher;
 	test_pointers[2] = testNotPublisher;
@@ -321,64 +595,72 @@ int main()
 	test_pointers[8] = testAlreadyRetrivedAllMessages;
 	test_pointers[9] = testOverfillMessages;
 	
+	test_pointers[10] = testAuthSuperUser;
+	test_pointers[11] = testAddGroupLeader;
+	test_pointers[12] = testRemoveGroupLeader;
+	test_pointers[13] = testPublicGroup;
+	test_pointers[14] = testPrivateGroup;
+	test_pointers[15] = testRemoveGroup;
+	
 	int result;
 	int i;
-	for (i = 0; i < 10; i++) {
+	int all_passed = 1;
+	for (i = 0; i < 16; i++) {
 		result = (*test_pointers[i]) ();
 		
 		if (result != 0) {
 			printf("Test failed with return error: %d\n", result);
+			all_passed = 0;
+			break;
 		}
+	}
+	
+	if (all_passed) {
+		printf("\n\n\nALL UNIT TESTS PASSED!");
 	}
 	
 	printf("\n\n\n");
 	
+	
 	/* Functional tests */
 	
-	int status = -1;
+	int status = -100;
 	
 	IGInit();
 	
-	struct interestGroup ig[MAX_SIZE_IG];
-	int group1 = IGCreate("group_1");
-	
-	printf("Registered group %d\n", group1);
-	
-	status = IGLookup(ig);
+	int super_user_pid = AuthSuperUser(10, SUPER_USER_PASSWORD);
+	printf("Super user pid: %d\n", super_user_pid);
+	status = AddGroupLeader(10, 100);
 	
 	if (status != 0) {
-		puts("Lookup FAIL!");
-	}
-	else {
-		puts("Interest groups available:");
+		printf("Status obtained from add group leader: %d\n", status);
 		
-		int i;
-		for (i = 0; i < MAX_SIZE_IG; i++) {
-			if (ig[i].id != 0 || i == 0) {
-				printf("\t%d: %s\n", ig[i].id, ig[i].group_name);
-			}
-		}
+		return -1;
 	}
-
-	status = IGPublisher(100, group1);
+	
+	int public_group1 = IGCreate(100, PUBLIC_GROUP, "group_1", NULL, 0);
+	
+	printIGs();
+	
+	status = IGPublisher(100, public_group1);
 	
 	if (status != 0) {
 		puts("Publisher 1 FAIL!");
 	}
 	
-	status = IGPublisher(200, group1);
+	status = IGPublisher(200, public_group1);
 	
 	if (status != 0) {
 		puts("Publisher 2 FAIL!");
 	}
 
-	status = IGSubscriber(100, group1);
+	status = IGSubscriber(100, public_group1);
 	
 	if (status != 0) {
 		puts("Subscriber 1 FAIL!");
 	}
 	
-	status = IGSubscriber(200, group1);
+	status = IGSubscriber(200, public_group1);
 	
 	if (status != 0) {
 		puts("Subscriber 2 FAIL!");
@@ -386,19 +668,19 @@ int main()
 	
 	
 	
-	status = IGPublish(100, group1, "Test message 1");
+	status = IGPublish(100, public_group1, "Test message 1");
 	
 	if (status != 0) {
 		printf("Publish failed with error code: %d\n", status);
 	}
 	
-	status = IGPublish(100, group1, "Test message 2");
+	status = IGPublish(100, public_group1, "Test message 2");
 	
 	if (status != 0) {
 		printf("Publish failed with error code: %d\n", status);
 	}
 	
-	status = IGPublish(100, group1, "Test message 3");
+	status = IGPublish(100, public_group1, "Test message 3");
 	
 	if (status != 0) {
 		printf("Publish failed with error code: %d\n", status);
@@ -407,7 +689,7 @@ int main()
 	
 	char message[MAX_MESSAGE_SIZE];
 
-	status = IGRetrive(100, group1, message);
+	status = IGRetrive(100, public_group1, message);
 	
 	if (status != 0) {
 		printf("Retrive failed with error code: %d\n", status);
@@ -416,7 +698,7 @@ int main()
 		printf("Received message: %s\n", message);
 	}
 
-	status = IGRetrive(100, group1, message);
+	status = IGRetrive(100, public_group1, message);
 	if (status != 0) {
 		printf("Retrive failed with error code: %d\n", status);
 	}
@@ -424,7 +706,7 @@ int main()
 		printf("Received message: %s\n", message);
 	}
 
-	status = IGRetrive(200, group1, message);
+	status = IGRetrive(200, public_group1, message);
 	
 	if (status != 0) {
 		printf("Retrive failed with error code: %d\n", status);
@@ -433,7 +715,7 @@ int main()
 		printf("Received message: %s\n", message);
 	}
 	
-	status = IGRetrive(200, group1, message);
+	status = IGRetrive(200, public_group1, message);
 	
 	if (status != 0) {
 		printf("Retrive failed with error code: %d\n", status);
@@ -442,7 +724,7 @@ int main()
 		printf("Received message: %s\n", message);
 	}
 
-	status = IGRetrive(100, group1, message);
+	status = IGRetrive(100, public_group1, message);
 	
 	if (status != 0) {
 		printf("Retrive failed with error code: %d\n", status);
@@ -451,7 +733,7 @@ int main()
 		printf("Received message: %s\n", message);
 	}
 	
-	status = IGRetrive(100, group1, message);
+	status = IGRetrive(100, public_group1, message);
 	
 	if (status != 0) {
 		printf("Retrive failed with error code: %d\n", status);
@@ -460,7 +742,7 @@ int main()
 		printf("Received message: %s\n", message);
 	}
 	
-	status = IGRetrive(200, group1, message);
+	status = IGRetrive(200, public_group1, message);
 	
 	if (status != 0) {
 		printf("Retrive failed with error code: %d\n", status);
@@ -469,7 +751,7 @@ int main()
 		printf("Received message: %s\n", message);
 	}
 	
-	status = IGRetrive(100, group1, message);
+	status = IGRetrive(100, public_group1, message);
 	
 	if (status != 0) {
 		printf("Retrive failed with error code: %d\n", status);
@@ -477,6 +759,111 @@ int main()
 	else {
 		printf("Received message: %s\n", message);
 	}
-    
+	
+	int allowed_pids[] = {100, 200};
+	int private_group1 = IGCreate(100, SECURE_GROUP, "Private group 1", allowed_pids, 2);
+	
+	printIGs();
+	
+	status = IGPublish(100, private_group1, "Test message 1");
+	
+	if (status != 0) {
+		printf("Publish failed with error code: %d\n", status);
+	}
+	
+	status = IGPublish(100, private_group1, "Test message 2");
+	
+	if (status != 0) {
+		printf("Publish failed with error code: %d\n", status);
+	}
+	
+	status = IGPublish(100, private_group1, "Test message 3");
+	
+	if (status != 0) {
+		printf("Publish failed with error code: %d\n", status);
+	}
+	
+	
+	status = IGRetrive(100, private_group1, message);
+	
+	if (status != 0) {
+		printf("Retrive failed with error code: %d\n", status);
+	}
+	else {
+		printf("Received message: %s\n", message);
+	}
+	
+	status = IGRetrive(100, private_group1, message);
+	if (status != 0) {
+		printf("Retrive failed with error code: %d\n", status);
+	}
+	else {
+		printf("Received message: %s\n", message);
+	}
+	
+	status = IGRetrive(200, private_group1, message);
+	
+	if (status != 0) {
+		printf("Retrive failed with error code: %d\n", status);
+	}
+	else {
+		printf("Received message: %s\n", message);
+	}
+	
+	status = IGRetrive(200, private_group1, message);
+	
+	if (status != 0) {
+		printf("Retrive failed with error code: %d\n", status);
+	}
+	else {
+		printf("Received message: %s\n", message);
+	}
+	
+	status = IGRetrive(100, private_group1, message);
+	
+	if (status != 0) {
+		printf("Retrive failed with error code: %d\n", status);
+	}
+	else {
+		printf("Received message: %s\n", message);
+	}
+	
+	status = IGRetrive(100, private_group1, message);
+	
+	if (status != 0) {
+		printf("Retrive failed with error code: %d\n", status);
+	}
+	else {
+		printf("Received message: %s\n", message);
+	}
+	
+	status = IGRetrive(200, private_group1, message);
+	
+	if (status != 0) {
+		printf("Retrive failed with error code: %d\n", status);
+	}
+	else {
+		printf("Received message: %s\n", message);
+	}
+	
+	status = IGRetrive(100, private_group1, message);
+	
+	if (status != 0) {
+		printf("Retrive failed with error code: %d\n", status);
+	}
+	else {
+		printf("Received message: %s\n", message);
+	}
+	
+	
+	status = IGRetrive(300, private_group1, message);
+	
+	if (status != 0) {
+		printf("Retrive failed with error code: %d\n", status);
+	}
+	else {
+		printf("Received message: %s\n", message);
+	}
+	
     return 0;
 }

@@ -13,6 +13,11 @@
 #define MAX_MESSAGE_SIZE		1024
 #define MAX_GROUP_NAME_LENGTH	255
 
+#define PUBLIC_GROUP 1
+#define SECURE_GROUP 2
+
+#define SUPER_USER_PASSWORD	12345
+
 typedef long unsigned int vir_bytes;
 
 struct message {
@@ -37,6 +42,8 @@ struct publisher {
 
 struct interestGroup {
     int id;
+	int group_leader;
+	int group_type;
 	char group_name[MAX_GROUP_NAME_LENGTH];
 	
 	int num_subscribers;
@@ -65,9 +72,13 @@ int IGLookup(struct interestGroup *ig) {
 	return status;
 }
 
-int IGCreate(char *groupName) {
+int IGCreate(int pid, int group_type, char *groupName, int *authorized_pids, int num_authorized_pids) {
     message m;
+	m.m1_i1 = pid;
+	m.m1_i2 = group_type;
+	m.m1_i3 = num_authorized_pids;
     m.m1_p1 = groupName;
+	m.m1_p2 = authorized_pids;
 	
     return( _syscall(PM_PROC_NR, IGCREATE, &m) );
 }
@@ -77,13 +88,14 @@ int IGRemove(int pid, int group_id) {
 	m.m1_i1 = pid;
 	m.m1_i2 = group_id;
 	
-	return (_syscall(PM_PROC_NR, IGREMOVE, &m));
+	return(_syscall(PM_PROC_NR, IGREMOVE, &m));
 }
 
 int IGPublisher(int pid, int group_id) {
     message m;
     m.m1_i1 = pid;
     m.m1_i2 = group_id;
+	
     return( _syscall(PM_PROC_NR, IGPUBLISHER, &m) );
 }
 
@@ -91,6 +103,7 @@ int IGSubscriber(int pid, int group_id) {
     message m;
     m.m1_i1 = pid;
     m.m1_i2 = group_id;
+	
     return( _syscall(PM_PROC_NR, IGSUBSCRIBER, &m) );
 }
 
@@ -111,4 +124,28 @@ int IGRetrive(int requesting_pid, int group_id, char *ret_message) {
 	int status = _syscall(PM_PROC_NR, IGRETRIVE, &m);
 	
 	return status;
+}
+
+int AuthSuperUser(int pid, int password) {
+	message m;
+	m.m1_i1 = pid;
+	m.m1_i2 = password;
+	
+	return (_syscall(PM_PROC_NR, AUTHSUPERUSER, &m));
+}
+
+int AddGroupLeader(int pid, int group_leader_pid) {
+	message m;
+	m.m1_i1 = pid;
+	m.m1_i2 = group_leader_pid;
+	
+	return (_syscall(PM_PROC_NR, ADDGROUPLEADER, &m));
+}
+
+int RemoveGroupLeader(int pid, int group_leader_pid) {
+	message m;
+	m.m1_i1 = pid;
+	m.m1_i2 = group_leader_pid;
+	
+	return (_syscall(PM_PROC_NR, REMOVEGROUPLEADER, &m));
 }

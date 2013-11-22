@@ -503,13 +503,18 @@ char *brk_addr;
 
 
 /*===========================================================================*
- *				Project 2 Modification - Start			     *
+ *				Project 3 Modification - Start			     *
  *===========================================================================*/
 
 #define MAX_GROUP_MESSAGES		5
 #define MAX_SIZE_IG				20
 #define MAX_MESSAGE_SIZE		1024
 #define MAX_GROUP_NAME_LENGTH	255
+
+#define PUBLIC_GROUP 1
+#define SECURE_GROUP 2
+
+#define SUPER_USER_PASSWORD	12345
 
 struct message {
 	int message_id;
@@ -533,6 +538,8 @@ struct publisher {
 
 struct interestGroup {
     int id;
+	int group_leader;
+	int group_type;
 	char group_name[MAX_GROUP_NAME_LENGTH];
 	
 	int num_subscribers;
@@ -544,11 +551,14 @@ struct interestGroup {
 	struct message messages[MAX_GROUP_MESSAGES];
 };
 
-// TODO: Rename this variable
 static struct interestGroup ig[MAX_SIZE_IG];
 static int numIntrestGroups = 0;
 static int nextIntrestGroupID = 1;
 static int nextMessageID = 1;
+
+static int super_user_pid = -1;
+static int group_leaders[MAX_SIZE_IG];
+static int num_group_leaders = 0;
 
 int cleanupMessagesArray(struct message *array) {
 	// This method gets called whenever a hole in the array is created as to always ensure that it's as tight as possible.
@@ -585,6 +595,34 @@ void cleanupIGArray() {
 			}
 		}
 	}
+}
+
+void cleanupGroupLeaderArray() {
+	int i;
+	
+	for (i = 0; i < MAX_SIZE_IG; i++) {
+		int currentLeader = group_leaders[i];
+		int nextLeader = group_leaders[i+1];
+		
+		if (currentLeader == 0) {
+			if (i + 1 < MAX_SIZE_IG && nextLeader != 0) {
+				group_leaders[i] = group_leaders[i+1];
+				group_leaders[i+1] = 0;
+			}
+		}
+	}
+}
+
+int isGroupLeader(int gl_pid) {
+	int i;
+	
+	for (i = 0; i < num_group_leaders; i++) {
+		if (group_leaders[i] == gl_pid) {
+			return 1;
+		}
+	}
+	
+	return 0;
 }
 
 struct interestGroup *findIGByID(int target_id) {
@@ -628,6 +666,53 @@ struct subscriber *processInSubscribers(int target_pid, struct interestGroup *th
 	return NULL;
 }
 
+int addPublisherToGroup(int process_id, struct interestGroup *targetInterestGroup) {
+	if (targetInterestGroup == NULL) {
+		printf("Invalid interest group!\n");
+		return -1;
+	}
+	
+	if (processInPublishers(process_id, targetInterestGroup) == NULL) {
+		struct publisher *new_publisher = (struct publisher *) malloc(sizeof(struct publisher *));
+		new_publisher->publisher_pid = process_id;
+		
+		targetInterestGroup->publishers[targetInterestGroup->num_publishers] = *new_publisher;
+		targetInterestGroup->num_publishers++;
+		
+		printf("Added publisher:\n\tPID: %d\n\tInterest group ID: %d\n\tNumber of current publishers: %d\n", process_id, targetInterestGroup->id, targetInterestGroup->num_publishers);
+		
+		return 0;
+	}
+	else {
+		printf("PID (%d) already a publisher in interest group (%d)!\n", process_id, targetInterestGroup->id);
+		return -2;
+	}
+}
+
+int addSubscriberToGroup(int process_id, struct interestGroup *targetInterestGroup) {
+	if (targetInterestGroup == NULL) {
+		printf("Invalid interest group!\n");
+		return -1;
+	}
+	
+	if (processInSubscribers(process_id, targetInterestGroup) == NULL) {
+		struct subscriber *new_subscriber = (struct subscriber *) malloc(sizeof(struct subscriber *));
+		new_subscriber->subscriber_pid = process_id;
+		memset(&new_subscriber->read_messages, 0, sizeof(struct message_list));
+		
+		targetInterestGroup->subscribers[targetInterestGroup->num_subscribers] = *new_subscriber;
+		targetInterestGroup->num_subscribers++;
+		
+		printf("Added subscriber:\n\tPID: %d\n\tInterest group ID: %d\n\tNumber of current subscribers: %d\n", process_id, targetInterestGroup->id, targetInterestGroup->num_subscribers);
+		
+		return 0;
+	}
+	else {
+		printf("PID (%d) already a subscriber in interest group (%d)!\n", process_id, targetInterestGroup->id);
+		return -2;
+	}
+}
+
 /*===========================================================================*
  *				do_IGInit				     *
  *===========================================================================*/
@@ -639,6 +724,10 @@ int do_IGInit()
 	numIntrestGroups = 0;
 	nextIntrestGroupID = 1;
 	nextMessageID = 1;
+	
+	super_user_pid = -1;
+	memset(&group_leaders, 0, sizeof(int) * MAX_SIZE_IG);
+	num_group_leaders = 0;
 	
 	return 0;
 }
@@ -663,12 +752,22 @@ int do_IGCreate()
 {
 	printf("\n-----IGCreate called.-----\n");
 	
+	int group_leader_pid = m_in.m1_i1;
+	// Group type: 1 - Public, 2 - Secure
+	int group_type = m_in.m1_i2;
+	int num_authorized_pids = m_in.m1_i3;
+	
 	char newGroupName[MAX_GROUP_NAME_LENGTH];
 	
 	// Check to make sure there's still space.
 	if (numIntrestGroups == MAX_SIZE_IG) {
 		printf("Unable to add new interest group (%d), at maximum capacity (%d)!\n", numIntrestGroups, MAX_SIZE_IG);
 		return -1;
+	}
+	
+	if (isGroupLeader(group_leader_pid) == 0) {
+		printf("Non group leader (%d) attempted to create interets group!\n", group_leader_pid);
+		return -2;
 	}
 	
 	struct interestGroup *thisInterestGroup = &ig[numIntrestGroups];
@@ -678,11 +777,39 @@ int do_IGCreate()
 	thisInterestGroup->id = nextIntrestGroupID;
 	nextIntrestGroupID++;
 	
+	// Regardless, keep track who made this group.
+	thisInterestGroup->group_leader = group_leader_pid;
+	
 	// Copy across the name of the group to a local variable.
 	sys_datacopy(m_in.m_source, (vir_bytes) m_in.m1_p1, PM_PROC_NR, (vir_bytes) newGroupName, MAX_GROUP_NAME_LENGTH);
 	memcpy(thisInterestGroup->group_name, newGroupName, sizeof(newGroupName));
 	
 	thisInterestGroup->num_messages = 0;
+	
+	// Keep track what type of group this is.
+	thisInterestGroup->group_type = group_type;
+	
+	// Check to see if this is a secure group...if it is, we should expect an array of authorized PIDs in tow.
+	if (thisInterestGroup->group_type == SECURE_GROUP) {
+		int authorized_pids[MAX_SIZE_IG];
+		sys_datacopy(m_in.m_source, (vir_bytes) m_in.m1_p2, PM_PROC_NR, (vir_bytes) authorized_pids, MAX_SIZE_IG);
+		
+		printf("Authorizing %d PIDs.\n", num_authorized_pids);
+		
+		int i;
+		for (i = 0; i < num_authorized_pids; i++) {
+			int this_pid = authorized_pids[i];
+			
+			if (this_pid != 0) {
+				printf("Authorized PID %d.\n", this_pid);
+				addPublisherToGroup(this_pid, thisInterestGroup);
+				addSubscriberToGroup(this_pid, thisInterestGroup);
+			}
+			else {
+				printf("Unable to authorize PID %d because it is invalid!\n", this_pid);
+			}
+		}
+	}
 	
 	printf("Created new interest group:\n\tID: %d\n\tName: %s\n", thisInterestGroup->id, thisInterestGroup->group_name);
 	
@@ -706,10 +833,15 @@ int do_IGRemove()
 		return -1;
 	}
 	
-	printf("Removed interest group:\n\tID: %d\n\tName: %s\n", thisInterestGroup->id, thisInterestGroup->group_name);
+	if (targetInterestGroup->group_leader != process_id && process_id != super_user_pid) {
+		printf("Process %d attempted to remove secure group %d but is not group leader!\n", process_id, targetInterestGroup->id);
+		return -2;
+	}
+	
+	printf("Removed interest group:\n\tID: %d\n\tName: %s\n", targetInterestGroup->id, targetInterestGroup->group_name);
 	
 	// Overwrite the interest group's memory location with 0's
-	memcpy(targetInterestGroup, 0, sizeof(struct interestGroup));
+	memset(targetInterestGroup, 0, sizeof(struct interestGroup));
 
 	// Decrease the number of interest groups
 	numIntrestGroups--;
@@ -721,7 +853,7 @@ int do_IGRemove()
 }
 
 /*===========================================================================*
- *				do_IGPublisher				     *
+ *				do_IGPublisher			     *
  *===========================================================================*/
 int do_IGPublisher()
 {
@@ -735,6 +867,11 @@ int do_IGPublisher()
 	if (targetInterestGroup == NULL) {
 		printf("Failed to find interest group with id: %d\n", interest_group_id);
 		return -1;
+	}
+	
+	if (targetInterestGroup->group_type == SECURE_GROUP) {
+		printf("Process %d attempted unauthorized publisher addtion to interest group %d\n", process_id, targetInterestGroup->id);
+		return -3;
 	}
 	
 	if (processInPublishers(process_id, targetInterestGroup) == NULL) {
@@ -755,7 +892,7 @@ int do_IGPublisher()
 }
 
 /*===========================================================================*
- *				do_IGSubscriber				     *
+ *				do_IGSubscriber		     *
  *===========================================================================*/
 int do_IGSubscriber()
 {
@@ -769,6 +906,11 @@ int do_IGSubscriber()
 	if (targetInterestGroup == NULL) {
 		printf("Failed to find interest group with id: %d\n", interest_group_id);
 		return -1;
+	}
+	
+	if (targetInterestGroup->group_type == SECURE_GROUP) {
+		printf("Process %d attempted unauthorized subscriber addtion to interest group %d\n", process_id, targetInterestGroup->id);
+		return -3;
 	}
 	
 	if (processInSubscribers(process_id, targetInterestGroup) == NULL) {
@@ -982,5 +1124,95 @@ int do_IGRetrive()
 }
 
 /*===========================================================================*
- *				Project 2 Modification - End			     *
+ *				do_AuthSuperUser				     *
+ *===========================================================================*/
+
+int do_AuthSuperUser() {
+	printf("\n-----AuthSuperUser called.-----\n");
+	
+	int requesting_pid = m_in.m1_i1;
+	int given_password = m_in.m1_i2;
+	
+	if (given_password == SUPER_USER_PASSWORD) {
+		super_user_pid = requesting_pid;
+		
+		return requesting_pid;
+	}
+	
+	printf("Requesting PID (%d) gave wrong password (%d)!\n", requesting_pid, given_password);
+	return -1;
+}
+
+/*===========================================================================*
+ *				do_AddGroupLeader				     *
+ *===========================================================================*/
+
+int do_AddGroupLeader() {
+	printf("\n-----AddGroupLeader called.-----\n");
+	
+	int requesting_pid = m_in.m1_i1;
+	int group_leader_pid = m_in.m1_i2;
+	
+	if (requesting_pid == super_user_pid) {
+		if (num_group_leaders < MAX_SIZE_IG) {
+			group_leaders[num_group_leaders] = group_leader_pid;
+			num_group_leaders++;
+			
+			return 0;
+		}
+		else {
+			printf("Can't add another group leader, array full!\n");
+			return -2;
+		}
+	}
+	else {
+		printf("Non super user PID (%d) tried to add group leader!\n", requesting_pid);
+		return -1;
+	}
+}
+
+/*===========================================================================*
+ *				do_RemoveGroupLeader				     *
+ *===========================================================================*/
+
+int do_RemoveGroupLeader() {
+	printf("\n-----RemoveGroupLeader called.-----\n");
+	
+	int requesting_pid = m_in.m1_i1;
+	int group_leader_pid = m_in.m1_i2;
+	
+	int found = 0;
+	
+	if (requesting_pid == super_user_pid) {
+		int i;
+		
+		for (i = 0; i < MAX_SIZE_IG; i++) {
+			if (group_leaders[i] == group_leader_pid) {
+				found = 1;
+				
+				group_leaders[i] = 0;
+				num_group_leaders--;
+				
+				cleanupGroupLeaderArray();
+			}
+		}
+		
+		if (found) {
+			return 0;
+		}
+		else {
+			printf("Unable to remove group leader (%d) becuase it doesn't exist!\n", group_leader_pid);
+			return -2;
+		}
+	}
+	else {
+		printf("Non super user PID (%d) tried to remove group leader!\n", requesting_pid);
+		return -1;
+	}
+	
+	return 0;
+}
+
+/*===========================================================================*
+ *				Project 3 Modification - End			     *
  *===========================================================================*/
